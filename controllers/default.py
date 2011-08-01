@@ -1,0 +1,1007 @@
+# QUERY Examples:
+# db(where_statement).select(field_names)
+# posts = db().select(db.zblog_posts.ALL, orderby=~db.zblog_posts.modified_on, limitby=(0, INDEX_POSTS))
+# children = db(db.zblog_posts_children.post==post.id).select(db.zblog_posts_children.ALL, orderby=db.zblog_posts_children.modified_on)
+# posts = db((\
+#           (db.zblog_posts.title.lower().like('%%%s%%' % srch_str.lower()))\
+#           |\
+#           (db.zblog_posts.content.lower().like('%%%s%%' % srch_str.lower()))\
+#           )\
+#           &\
+#           (db.zblog_posts.hidden == False)).select()
+
+import datetime
+import hashlib
+import base64
+
+
+from gluon.contrib.login_methods.email_auth import email_auth
+
+def index():
+    cat_list = []
+    cat_dict = {}
+    view_info = {}
+    # Get all available Categories/Forums/Hits, etc, etc in one single, optimized query and determine which
+    # ones the user is allowed to view.
+    # This is one of the few SQL queries that I still need to port to web2py's DAL, any takers?
+    sql = """
+    select
+        zfc.id as cat_id,
+        zfc.cat_name,
+        zfc.cat_desc,
+        zfc.cat_visible_to,
+        zfc.cat_sort,
+        zf.id as forum_id,
+        zf.forum_title,
+        zf.forum_desc,
+        zf.moderation_flag,
+        zf.anonymous_viewaccess,
+        zf.add_postings_access_roles,
+        zf.reply_postings_access_roles,
+        zf.forum_sort,
+        count(nullif(zt.parent_flag='T',0)) as parents,
+        count(nullif(zt.parent_flag='F',0)) as siblings,
+        sum(zt.hits) as hits
+    from
+        zf_forum_category as zfc
+            left join zf_forum as zf on zfc.id = zf.cat_id
+            left join zf_topic as zt on zt.forum_id = zf.id and zt.disabled_flag = 0
+    group by
+        zf.id,
+        zf.forum_title,
+        zf.forum_desc,
+        zf.moderation_flag,
+        zf.anonymous_viewaccess,
+        zf.add_postings_access_roles,
+        zfc.id,
+        zfc.cat_name,
+        zfc.cat_desc,
+        zfc.cat_visible_to,
+        zfc.cat_sort,
+        zf.reply_postings_access_roles,
+        zf.forum_sort
+    order by
+        zfc.cat_sort,
+        zf.forum_sort
+    """
+    cats_and_forums = db.executesql(sql) # Returns a tuple and each tuple element containing the column values
+    if cats_and_forums:
+        today = request.now
+        now = datetime.datetime.now()
+        for cat_forum in cats_and_forums:
+            cat_id = cat_forum[0]
+            cat_name = cat_forum[1]
+            cat_desc = cat_forum[2]
+            cat_visible_to_str = cat_forum[3]
+            cat_sort = cat_forum[4]
+            forum_id = cat_forum[5]
+            forum_title = cat_forum[6]
+            forum_desc = cat_forum[7]
+            moderation_flag = cat_forum[8]
+            anonymous_viewaccess = cat_forum[9]
+            add_postings_access_roles = cat_forum[10]
+            reply_postings_access_roles = cat_forum[11]
+            forum_sort = cat_forum[12]
+            parents = cat_forum[13]
+            siblings = cat_forum[14]
+            hits = cat_forum[15]
+
+            cat_view_access = False
+
+            cat_visible_to = cat_visible_to_str.strip().split(',')
+            # Automatic access if the user is a forum admin, or if the category itself is not
+            # restricted to noone (i.e. the "cat_visible_to" field is empty (no roles):
+            if auth_user.has_role('zAdministrator') or cat_visible_to_str.strip() == '':
+                cat_view_access = True
+            else:
+                # The "key" here relies in the "auth_user.has_role(cat)"
+                cat_view_access = [cat for cat in cat_visible_to if auth_user.has_role(cat)] != []
+
+            if cat_view_access:
+                if forum_id:
+                    posts = 0
+                    replies = 0
+                    views = 0
+
+                    if parents:
+                        posts = parents
+                    if siblings:
+                        replies = siblings
+                    if hits:
+                        views = hits
+                    
+                    # Get Forum Last Updated Data
+                    #select
+                    #    zft.modifying_user,
+                    #    zft.modifying_date,
+                    #    zft.topic_id,
+                    #    zft.parent_flag,
+                    #    zft.parent_id
+                    #from
+                    #    zf_topic as zft
+                    #where
+                    #    zft.forum_id = **forum_id**
+                    #    and zft.disabled_flag = 0
+                    #order by
+                    #    zft.modifying_date desc
+                    #limit 1
+                    #offset 0
+                    where_statement = (db.zf_topic.forum_id==forum_id) & (db.zf_topic.disabled_flag==0)
+                    last_update_info = db(where_statement).select(db.zf_topic.modifying_user,
+                        db.zf_topic.modifying_date,
+                        db.zf_topic.id,
+                        db.zf_topic.parent_flag,
+                        db.zf_topic.parent_id,
+                        orderby=~db.zf_topic.modifying_date,
+                        limitby=(0,1))
+                    if last_update_info:
+                        last_updated = last_update_info[0].modifying_date
+                        last_updated_by = last_update_info[0].modifying_user
+                        if last_update_info[0].parent_flag:
+                            last_updated_topic_id = last_update_info[0].id
+                        else:
+                            last_updated_topic_id = last_update_info[0].parent_id
+                    else:
+                        last_updated = None
+                        last_updated_by = None
+                        last_updated_topic_id = None
+
+                    # Now, lets' set a flag to mark the "last updated" message in
+                    # red (or any other visual cue) if the message is less than a day old (24 hs)
+                    if last_updated:
+                        # td is a timedelta object
+                        td = (today - last_updated).days
+                        if td == 0:
+                            update_flag = True
+                        else:
+                            update_flag = False
+                    else:
+                        update_flag = False
+
+                    # Now here is the deal, not everyone will be able to view/enter
+                    # a particular forum, so here is when the logic applies
+                    # We'll check if the user logged in or not has the role needed
+                    # note that a forum could have the role "Anonymous", which
+                    # would give an anonymous user access to the forum's topics
+                    add_forum = False
+                    access_roles = add_postings_access_roles.split(',') + reply_postings_access_roles.split(',')
+
+                    if [role for role in access_roles if auth_user.has_role(role) or anonymous_viewaccess]:
+                        add_forum = True
+
+                    if add_forum:
+                        if last_updated:
+                            s_last_updated = last_updated.strftime(str(T('%b %d, %Y - %I:%M %p')))
+                        else:
+                            s_last_updated = ''
+                        forum_dict = {'forum_id': forum_id,
+                                      'forum_title': XML(forum_title),
+                                      'forum_desc': forum_desc,
+                                      'anonymous_viewaccess': anonymous_viewaccess,
+                                      'posts': posts,
+                                      'replies': replies,
+                                      'views': views,
+                                      'forum_sort': forum_sort,
+                                      'last_updated': s_last_updated,
+                                      'last_updated_by': last_updated_by,
+                                      'last_updated_topic_id': last_updated_topic_id,
+                                      'subscribed_to_forum': forumhelper.has_forum_subscription(forum_id, auth_user.get_user_name()),
+                                      'update_flag': update_flag}
+                        if cat_dict.has_key(cat_id):
+                            cat_dict['forum_list'].append(forum_dict)
+                        else:
+                            cat_dict = {cat_id: cat_id,
+                                        'cat_id': cat_id,
+                                        'cat_name': cat_name,
+                                        'cat_sort': cat_sort,
+                                        'forum_list': [forum_dict],
+                                        'cat_visible_to': cat_visible_to,
+                                        'cat_desc': cat_desc}
+                            cat_list.append(cat_dict)
+                else:
+                    # Cat Visible but No Forums
+                    cat_dict = {cat_id: cat_id,
+                                'cat_id': cat_id,
+                                'cat_name': cat_name,
+                                'cat_sort': cat_sort,
+                                'forum_list': [],
+                                'cat_visible_to': cat_visible_to,
+                                'cat_desc': cat_desc}
+                    cat_list.append(cat_dict)
+    # Here get the latest system announceemnt to display in the top line
+    sys_topics = forumhelper.get_system_announcements(include_content=True)
+    if len(sys_topics):
+        sys_topic = sys_topics[0]
+        if type(sys_topic) != type({}):
+            view_info.update({'sys_topic': sys_topics[0]})
+            
+    # Addition for 1.0.0+
+    # IF the system detects that the users table is empty, it'll "initialize"
+    # the first user, Administrator with password Administrator (capitalization matters)
+    register_first_user = db(db.auth_users.id > 0).count() == 0
+    if register_first_user:
+        hash_passwd = hashlib.sha1('Administrator').hexdigest()
+        auth_user_id = db.auth_users.insert(auth_alias='Administrator', auth_email='administrator@pyforum.org', auth_passwd=hash_passwd, auth_created_on=request.now, auth_modified_on=request.now)
+        # Add the CUSTOM role of zAdministrator (NOTE: THIS ROLE MUST EXIST)
+        auth_role_id = db(db.auth_roles.auth_role_name=='zAdministrator').select(db.auth_roles.id)[0].id
+        db.auth_user_role.insert(auth_user_id=auth_user_id, auth_role_id=auth_role_id)
+        # Ask in the forum if I should "automatically" authenticate the Administrator user
+        # auth_user.authenticate('Administrator', 'Administrator')
+    return dict(cat_list=cat_list, view_info=view_info)
+
+def login():
+    """ Handles login actions """
+    errors = []
+    isauth = False
+    req = request.vars
+    if req.form_submitted:
+        if req.login_b:
+            # New in 1.0.2 - Google login is supported
+            if req.google_account is not None:
+                domain = req.auth_alias[req.auth_alias.find('@'):]
+                google_auth = email_auth(server="smtp.gmail.com:587", domain=domain)
+                if google_auth(email=req.auth_alias, password=req.passwd):
+                    # Google Authentication Correct
+                    # TODO: Insert or update the record locally as well, the password
+                    # is, for obvious reason hashed and stored locally in order to provide
+                    # the user with all the forum goodies such as PM, Preferences, etc
+                    auth_user.authenticate_google(req.auth_alias, req.passwd)
+                    isauth = True
+                else:
+                    errors.append('Invalid Username or Password entered')
+            else:
+                if auth_user.authenticate(req.auth_alias, req.passwd):
+                    isauth = True
+                #rows = db((db.auth_users.auth_email == req.auth_email) & (db.auth_users.auth_passwd == req.passwd)).select()
+                #if rows:
+                #    auth_user.authenticate(req.auth_email)
+                #    isauth = True
+                else:
+                    errors.append('Invalid Username or Password entered')
+        elif req.request_pwd:
+            if req.req_email:
+                if forumhelper.emailpwd(req.req_email):
+                    errors.append('Your new password should appear in your inbox momentarily')
+                else:
+                    errors.append('A problem in the email sending process prevented the email delivery. Please contact the forum administrator.')
+            return dict(request=request, errors=errors)
+        else:
+            redirect(URL(r=request, c='default', f='signup'))
+    if isauth:
+        # Grab the Language preferences here, and send it
+        lang = forumhelper.get_member_property(property_name='zfmp_locale', auth_user=auth_user.get_user_name(), default_value='')
+        redirect(URL(r=request, c='default', f='index', vars=dict(lang=lang)))
+    else:
+        return dict(request=request, errors=errors)
+
+def login_janrain():
+    token = request.vars.token # Must be posted by the external calling process
+
+    # Part of the Janrain API docs.
+    api_params = {
+    'token': token,
+    'apiKey': 'a1357f66065bfa557d34c96d1116cbf50d8bf510',
+    'format': 'json',}
+
+    # make the api call
+    http_response = urllib2.urlopen('https://rpxnow.com/api/v2/auth_info',
+                                urllib.urlencode(api_params))
+    # read the json response
+    auth_info_json = http_response.read()
+
+    # Process the json response
+    auth_info = json.loads(auth_info_json)
+    # Step 4) use the response to sign the user in
+    if auth_info['stat'] == 'ok':
+        profile = auth_info['profile']
+
+        # 'identifier' will always be in the payload
+        # this is the unique idenfifier that you use to sign the user
+        # in to your site
+        identifier = profile['identifier']
+
+        # these fields MAY be in the profile, but are not guaranteed. it
+        # depends on the provider and their implementation.
+        name = profile.get('displayName')
+        email = profile.get('email')
+        profile_pic_url = profile.get('photo')
+
+        # actually sign the user in.
+        user_id = auth_user.authenticate_janrain(
+            identifier,
+            name,
+            email,
+            profile_pic_url)
+        form_vars = {}
+
+        # Now, update some properties
+        stackhelper.put_member_property('m_last_login', user_id, request.now)
+        # Only update Name (m_display_name) if the field is actually empty
+        if stackhelper.get_member_property(
+            'm_display_name',
+            user_id,
+            '') == '':
+            stackhelper.put_member_property('m_display_name', user_id, name)
+    else:
+        # TODO: Do something more elegant than this
+        #raise ValueError('An error occured: %s' % (auth_info['err']['msg']))
+        form_vars = dict(login_error=auth_info['err']['msg'])
+    redirect(URL(r=request, c='default', f='index', vars=form_vars))
+
+
+def logout():
+    if session.has_key('lang'):
+        del session['lang']
+    auth_user.logout()
+    redirect(URL(r=request, c='default', f='index', vars=dict(lang='')))
+
+def view_forum():
+    req = request.vars
+    view_info = {}
+    view_info['errors'] = []
+    view_info['all_topics'] = 0
+    security_info = {'can_add': False, 'can_reply': False}
+
+    if req.remove_topics:
+        forum_id = (req.forum_id)
+        forum = db(db.zf_forum.id==forum_id).select()[0]
+    else:
+        forum_id = int(request.args[0])
+        # Here handle subscription/unsubscriptions
+        if len(request.args) > 1 and auth_user.is_auth():
+            subscription_flag = int(request.args[1])
+            is_subscription = db((db.zf_member_subscriptions.subscription_id==forum_id) & (db.zf_member_subscriptions.auth_user==auth_user.get_user_name())).select(db.zf_member_subscriptions.id)
+            if subscription_flag == 1: # Request Subscription
+                if len(is_subscription) == 0:
+                    # (new) Subscription
+                    db.zf_member_subscriptions.insert(auth_user=auth_user.get_user_name(), subscription_id=forum_id, subscription_type='F', subscription_active=True)
+                else:
+                    # Update an existing subscription back to "true"
+                    db(
+                        (db.zf_member_subscriptions.subscription_id==forum_id) &
+                        (db.zf_member_subscriptions.subscription_type=='F') &
+                        (db.zf_member_subscriptions.auth_user==auth_user.get_user_name())).update(subscription_active=True)
+            else: # User is requesting removal (or inactivate subscription)
+                if len(is_subscription) > 0:
+                    db(
+                        (db.zf_member_subscriptions.subscription_id==forum_id) &
+                        (db.zf_member_subscriptions.auth_user==auth_user.get_user_name())).update(subscription_active=False)
+        forum = db(db.zf_forum.id==forum_id).select()[0]
+
+    # Information to pass regarding system variables, etc
+    # Forum Subscription:
+    view_info.update({'subscribed_to_forum': forumhelper.has_forum_subscription(forum_id, auth_user.get_user_name())})
+    # Max preview length:
+    view_info.update({'zfsp_topic_teaser_length': int(forumhelper.get_system_property('zfsp_topic_teaser_length', 250))})
+
+    # Security Checks here
+    user_can_enter = True
+    if not auth_user.is_auth() and not forum.anonymous_viewaccess:
+        user_can_enter = False
+
+    if user_can_enter:
+        if auth_user.is_admin():
+            security_info['can_add'] = True
+            security_info['can_reply'] = True
+        else:
+            if len(forum.add_postings_access_roles):
+                security_info['can_add'] = [role for role in auth_user.get_roles() if forum.add_postings_access_roles.find(role)] != []
+            else:
+                security_info['can_add'] = True
+
+            if len(forum.reply_postings_access_roles):
+                security_info['can_reply'] = [role for role in auth_user.get_roles() if forum.reply_postings_access_roles.find(role)] != []
+            else:
+                security_info['can_reply'] = True
+
+        if req.del_topics:
+            for req_var in req:
+                if req_var[:10] == 'del_topic_':
+                    del_topic_id = int(req[req_var])
+                    db(db.zf_topic.parent_id==del_topic_id).delete() # Children
+                    db(db.zf_topic.id==del_topic_id).delete() # Parent
+                    view_info.update({'topics_removed': True})
+
+        
+        # Pagination Manager Part I/II
+        start = int(req.get('start', 0))
+        #try:
+        topics_per_page = int(forumhelper.get_system_property('zfsp_threads_per_page', 15))
+        #except:
+        #    topics_per_page = 15
+        
+        # all Topics
+        all_topics = db((db.zf_topic.forum_id==forum_id) & (db.zf_topic.parent_flag==True)).count()
+        view_info['all_topics'] = all_topics
+        parent_topics = db((db.zf_topic.forum_id==forum_id) & (db.zf_topic.parent_flag==True)).select(orderby=(~db.zf_topic.sticky_flag, ~db.zf_topic.modifying_date), limitby=(start, start+topics_per_page))
+        
+        # Pagination Manager Part II/II
+        pagination_widget = forumhelper.pagination_widget(all_topics, start, URL(r=request, c='default', f='view_forum', args=[forum.id]), 'forum')
+        view_info.update({'pagination_widget': pagination_widget})
+
+        # Now plug in the information regarding their children
+        topic_replies_info = {}
+        for topic in parent_topics:
+            # Get the number of children topics for this (parent) topic
+            topic_replies_info.update({topic.id: db(db.zf_topic.parent_id==topic.id).count()})
+            # Topic Subscription
+            if forumhelper.has_topic_subscription(topic.id, auth_user.get_user_name()):
+                view_info.update({topic.id: {'subscribed_to_topic': True}})
+            else:
+                view_info.update({topic.id: {'subscribed_to_topic': False}})
+
+        return dict(request=request, forum=forum, parent_topics=parent_topics, view_info=view_info, security_info=security_info, topic_replies_info=topic_replies_info)
+    else:
+        redirect(URL(r=request, c='default', f='unauthorized'))
+
+def signup():
+    req = request.vars
+    view_info = {}
+    view_info['errors'] = []
+    allow_registration = forumhelper.get_system_property('zfsp_allow_registration', '') != ''
+    view_info.update({'allow_registration': allow_registration})
+    if req.form_submitted:
+        if req.register_b:
+            invalid_accounts = ['root', 'administrator', 'admin', 'zadministrator']
+            # Verify required fields
+            if len(req.auth_alias) > 0 and len(req.auth_email) > 0 and len(req.auth_passwd) > 0:
+                auth_alias = req.auth_alias.strip()
+                auth_email = req.auth_email.strip()
+                auth_passwd = req.auth_passwd
+                auth_passwd_c = req.auth_passwd_c
+
+                if auth_alias.find(' ') >= 0:
+                    view_info['errors'].append('Username must not contain spaces')
+
+                if auth_email.find(' ') >= 0:
+                    view_info['errors'].append('Email must not contain spaces')
+
+                if auth_passwd != auth_passwd_c:
+                    view_info['errors'].append('Password and confirmation do not match')
+
+                # See if this name has been taken
+                if auth_alias.lower() in invalid_accounts or db(db.auth_users.auth_alias.upper()==auth_alias.upper()).select(db.auth_users.id):
+                    view_info['errors'].append('The selected username is unavailable, please select another one')
+
+                if not view_info['errors']:
+                    # Authenticate user
+                    auth_email = req.auth_email
+                    hash_passwd = hashlib.sha1(auth_passwd).hexdigest()
+                    #hash_passwd = sha.new(auth_passwd).hexdigest()
+                    auth_user_id = db.auth_users.insert(auth_alias=auth_alias, auth_email=auth_email, auth_passwd=hash_passwd, auth_created_on=request.now, auth_modified_on=request.now)
+                    # Add the default role of zMember (NOTE: THIS ROLE MUST EXIST)
+                    auth_role_id = db(db.auth_roles.auth_role_name=='zMember').select(db.auth_roles.id)[0].id
+                    db.auth_user_role.insert(auth_user_id=auth_user_id, auth_role_id=auth_role_id)
+                    # Now authenticate user
+                    auth_user.authenticate(auth_alias, auth_passwd)
+            else:
+                view_info['errors'].append('Please make sure you fill in all the required fields in order to continue')
+
+            if view_info['errors']:
+                return dict(request=request, view_info=view_info)
+            else:
+                redirect(URL(r=request, c='default', f='index'))
+        else:
+            redirect(URL(r=request, c='default', f='index'))
+    else:
+        return dict(request=request, view_info=view_info)
+
+def view_topic():
+    req = request.vars
+    view_info = {}
+    view_info['errors'] = []
+    security_info = {'can_add': False, 'can_reply': False}
+    parent_topic_removed = False
+    user_name = auth_user.get_user_name()
+    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png', 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png', 'icon_idea.png', 'icon_lol.png', 'icon_mad.png', 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png', 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png', 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png', 'icon_wink.png']
+    view_info.update({'emoticons': emoticons})
+    # Added in 1.0.3 - Captcha-like
+    captcha = forumhelper.gen_pwd()
+    view_info['anon_captcha'] = captcha
+    view_info['anon_captcha_base64'] = base64.standard_b64encode(captcha)
+    
+    if req.form_submitted:
+        topic_id = (req.topic_id)
+    else:
+        topic_id = int(request.args[0])
+    # Get This topic
+    topic = db(db.zf_topic.id==topic_id).select()[0]
+    if topic.parent_flag:
+
+        # Handle Topic subscriptions here
+        if len(request.args) > 1:
+            subscription_request = int(request.args[1]) == 1
+            if subscription_request:
+                forumhelper.add_topic_subscription(topic_id, user_name)
+            else:
+                forumhelper.del_topic_subscription(topic_id, user_name)
+
+        # Handle Topic Hits Here as well
+        db(db.zf_topic.id==topic_id).update(hits=topic.hits+1)
+
+        # Grab the forum
+        forum = db(db.zf_forum.id==topic.forum_id).select()[0]
+
+        if len(forum.add_postings_access_roles):
+            security_info['can_add'] = [role for role in auth_user.get_roles() if forum.add_postings_access_roles.find(role)] != []
+        else:
+            security_info['can_add'] = True
+
+        if len(forum.reply_postings_access_roles):
+            security_info['can_reply'] = [role for role in auth_user.get_roles() if forum.reply_postings_access_roles.find(role)] != []
+        else:
+            security_info['can_reply'] = True
+
+        # HANDLE Removals/Submission of new topic, etc
+        # Was a removal requested?
+        if req.remove and auth_user.is_admin():
+            # At this point, there are several important things to consider, if the admin requested
+            # removal of the parent topic, along with one or more children topics, there is no point in 
+            # processing the children since they'll be deleted anyway
+            if req.get('remove_topic_parent_%s' % (topic_id), '') != '':
+                # Removal of parent requested, remove children first, then parent.
+                db(db.zf_topic.parent_id==topic_id).delete()
+                db(db.zf_topic.id==topic_id).delete()
+                parent_topic_removed = True
+            else:
+                # Removal of certain children topics requested only
+                for req_var in req:
+                    if req_var[:19] == 'remove_topic_child_':
+                        child_topic_id = int(req[req_var])
+                        db(db.zf_topic.id==child_topic_id).delete()
+        if parent_topic_removed:
+            redirect(URL(r=request, c='default', f='view_forum', args=[forum.id]))
+        else:
+
+            # Here now check if the user is trying to add a new response (or preview)
+            if req.preview:
+                view_info.update({'preview': True})
+            elif req.form_submitted and security_info['can_reply'] and not auth_user.is_auth() and base64.standard_b64encode(req.captcha_response) != req.c:
+                # Use this slot when captcha fails
+                # This test must be evaluated when:
+                # - The User is Anonymous
+                # - AND the forum allow anonymous replies
+                view_info['errors'].append('Please make sure all required fields are properly filled')
+                view_info.update({'preview': True})
+            elif req.add and (security_info['can_reply'] or auth_user.is_admin()):
+                if req.response_content.strip():
+                    now = request.now.strftime('%Y-%m-%d %H:%M:%S')
+                    # User is requesting addition of a response (child topic)
+                    db.zf_topic.insert(forum_id=forum.id,
+                        title=topic.title,
+                        content=req.response_content,
+                        parent_id=topic_id,
+                        creation_user=user_name,
+                        creation_date=now,
+                        modifying_user=user_name,
+                        modifying_date=now,
+                        hits=0,
+                        parent_flag=False,
+                        locked_flag=False,
+                        disabled_flag=False,
+                        sticky_flag=False,
+                        poll_flag=False,
+                        system_announcement_flag=False,
+                        reply_to_topic_id=0,
+                        ip_address=request.remote_addr)
+
+                    # Update the modifying date, and the modifying user of its parent also
+                    db(db.zf_topic.id==topic_id).update(modifying_date=now, modifying_user=user_name)
+
+                    # Increment the number of postings for this user
+                    postings = int(forumhelper.get_member_property('zfmp_postings', user_name, '0')) + 1
+                    forumhelper.put_member_property('zfmp_postings', user_name, str(postings))
+
+                    # Notify Subscribed users about changes in this topic
+                    forumhelper.setup_notifications(subscription_id=topic_id, subscription_type='T', now=request.now.strftime('%Y-%m-%d %H:%M:%S'))
+
+                else:
+                    view_info['errors'].append('Content must be specified for the reply')
+
+            # Information to pass regarding system variables, etc
+            # Topic Subscription:
+            view_info.update({'subscribed_to_topic': forumhelper.has_topic_subscription(topic_id, user_name)})
+
+            # Pagination Manager Part I/II
+            start = int(req.get('start', 0))
+            #try:
+            responses_per_page = int(forumhelper.get_system_property('zfsp_responses_per_page', 15))
+            #except:
+            #    responses_per_page = 15
+            
+            # Children Topics
+            all_children = db(db.zf_topic.parent_id==topic.id).count()
+            children = db(db.zf_topic.parent_id==topic.id).select(db.zf_topic.ALL, orderby=db.zf_topic.modifying_date, limitby=(start, start+responses_per_page))
+            
+            # Pagination Manager Part II/II
+            pagination_widget = forumhelper.pagination_widget(all_children, start, URL(r=request, c='default', f='view_topic', args=[topic_id]), 'topic')
+            view_info.update({'pagination_widget': pagination_widget})
+
+            return dict(request=request, security_info=security_info, forum=forum, topic=topic, children=children, view_info=view_info)
+    else:
+        redirect(URL(r=request, c='default', f='invalid_request'))
+
+def add_topic():
+    req = request.vars
+    view_info = {}
+    view_info['errors'] = []
+    view_info['messages'] = []
+    captcha = forumhelper.gen_pwd()
+    view_info['anon_captcha'] = captcha
+    view_info['anon_captcha_base64'] = base64.standard_b64encode(captcha)
+    security_info = {'can_add': False, 'can_reply': False}
+    is_admin = auth_user.has_role('zAdministrator')
+    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png', 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png', 'icon_idea.png', 'icon_lol.png', 'icon_mad.png', 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png', 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png', 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png', 'icon_wink.png']
+    view_info.update({'emoticons': emoticons})
+    if req.form_submitted:
+        forum_id = int(req.forum_id)
+        if req.add_topic:
+            # First thing, required fields check:
+            if (req.title and req.content) and (auth_user.is_auth() or (not auth_user.is_auth() and base64.standard_b64encode(req.captcha_response) == req.c)):
+                content = req.content
+                # Parse the title
+                title = parse_content(req.title) # Ignore ALL html tags AND do not convert it
+                if is_admin:
+                    locked_flag = req.locked_flag is not None
+                    sticky_flag = req.sticky_flag is not None
+                    system_announcement_flag = req.system_announcement_flag is not None
+                    creation_user = req.creation_user
+                    creation_date = req.creation_date
+                    modifying_user = req.modifying_user
+                    modifying_date = req.modifying_date
+                else:
+                    locked_flag = False
+                    sticky_flag = False
+                    system_announcement_flag = False
+                    creation_user = auth_user.get_user_name()
+                    creation_date = request.now.strftime('%Y-%m-%d %H:%M:%S')
+                    modifying_user = creation_user
+                    modifying_date = creation_date
+
+                # Add Signature from Member Profile if requested.
+                if req.add_signature:
+                    signature = forumhelper.get_member_property('zfmp_signature', creation_user, '')
+                    if signature:
+                        content += '\n\n<code>\n%s</code>' % (signature)
+
+                # Add the topic
+                topic_id = db.zf_topic.insert(forum_id=forum_id,
+                    title=title,
+                    content=content,
+                    creation_user=creation_user,
+                    creation_date=creation_date,
+                    modifying_user=modifying_user,
+                    modifying_date=modifying_date,
+                    parent_flag=True,
+                    locked_flag=locked_flag,
+                    disabled_flag=False,
+                    sticky_flag=sticky_flag,
+                    poll_flag=False,
+                    system_announcement_flag=system_announcement_flag,
+                    ip_address=request.remote_addr)
+
+                # Notify Subscribed users about changes in this Forum
+                forumhelper.setup_notifications(subscription_id=forum_id, subscription_type='F', now=request.now.strftime('%Y-%m-%d %H:%M:%S'))
+
+                # Subscribe user to topic if requested
+                if req.add_subscription:
+                    forumhelper.add_topic_subscription(topic_id, creation_user)
+
+                # Increment the number of postings for this user
+                postings = int(forumhelper.get_member_property('zfmp_postings', creation_user, '0')) + 1
+                forumhelper.put_member_property('zfmp_postings', creation_user, str(postings))
+
+                view_info['messages'].append('Topic has been added')
+                redirect(URL(r=request, c='default', f='view_forum', args=[forum_id], vars=dict(added='1')))
+            else:
+                view_info['errors'].append('Please make sure all required fields are properly filled')
+                return dict(request=request, view_info=view_info, forum_id=forum_id)
+        elif req.preview_b:
+            content = req.content
+            if is_admin:
+                creation_user = req.creation_user
+            else:
+                creation_user = auth_user.get_user_name()
+            # Add Signature from Member Profile if requested.
+            if req.add_signature:
+                signature = forumhelper.get_member_property('zfmp_signature', creation_user, '')
+                if signature:
+                    content += '\n\n<code>\n%s</code>' % (signature)
+            view_info.update({'preview': content})
+            return dict(request=request, view_info=view_info, forum_id=forum_id)
+        else:
+            redirect(URL(r=request, c='default', f='view_forum', args=[forum_id]))
+    else:
+        forum_id = int(request.args[0])
+        return dict(request=request, view_info=view_info, forum_id=forum_id)
+
+@auth_user.requires_role('zAdministrator')
+def edit_topic():
+    req = request.vars
+    view_info = {}
+    view_info['errors'] = []
+    view_info['messages'] = []
+    security_info = {'can_add': False, 'can_reply': False}
+    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png', 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png', 'icon_idea.png', 'icon_lol.png', 'icon_mad.png', 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png', 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png', 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png', 'icon_wink.png']
+    view_info.update({'emoticons': emoticons})
+    if req.form_submitted:
+        topic_id = int(req.topic_id)
+        topic = db(db.zf_topic.id==topic_id).select()[0]
+        forum_id = topic.forum_id
+
+        if req.edit_topic:
+            if req.title and req.content and req.creation_user and req.creation_date and req.modifying_user and req.modifying_date:
+                title = parse_content(req.title)
+                creation_user = req.creation_user
+                creation_date = req.creation_date
+                modifying_user = req.modifying_user
+                modifying_date = req.modifying_date
+
+                if topic.parent_flag:
+                    parent_topic_id = topic_id
+                    locked_flag = req.locked_flag is not None
+                    sticky_flag = req.sticky_flag is not None
+                    system_announcement_flag = req.system_announcement_flag is not None
+                    db(db.zf_topic.id==topic_id).update(title=title,
+                        content=req.content,
+                        creation_user=creation_user,
+                        creation_date=creation_date,
+                        modifying_user=modifying_user,
+                        modifying_date=modifying_date,
+                        locked_flag=locked_flag,
+                        sticky_flag=sticky_flag,
+                        system_announcement_flag=system_announcement_flag)
+                else:
+                    parent_topic_id = topic.parent_id
+                    # Just Update child-required fields
+                    db(db.zf_topic.id==topic_id).update(title=title,
+                        content=req.content,
+                        creation_user=creation_user,
+                        creation_date=creation_date,
+                        modifying_user=modifying_user,
+                        modifying_date=modifying_date)
+                redirect(URL(r=request, c='default', f='view_topic', args=[parent_topic_id]))
+            else:
+                view_info['errors'].append('All fields are required')
+                return dict(request=request, topic=topic, view_info=view_info)
+        elif req.preview_b:
+            view_info.update({'preview': True})
+            return dict(request=request, view_info=view_info, topic=topic)
+        elif req.remove_b:
+            if topic.parent_flag:
+                parent_topic_id = topic_id
+                db(db.zf_topic.parent_id==parent_topic_id).delete()
+                db(db.zf_topic.id==parent_topic_id).delete()
+                redirect_to = URL(r=request, c='default', f='view_forum', args=[forum_id])
+            else:
+                parent_topic_id = topic.parent_id
+                db(db.zf_topic.id==topic_id).delete()
+                redirect_to = URL(r=request, c='default', f='view_topic', args=[parent_topic_id])
+            redirect(redirect_to)
+        else:
+            if topic.parent_flag:
+                parent_topic_id = topic.id
+            else:
+                parent_topic_id = topic.parent_id
+            redirect(URL(r=request, c='default', f='view_topic', args=[parent_topic_id]))
+    else:
+        topic_id = int(request.args[0])
+        topic = db(db.zf_topic.id==topic_id).select()[0]
+        return dict(request=request, topic=topic, view_info=view_info)
+
+def report_inappropriate():
+    topic_id = int(request.args[1])
+    child_id = int(request.args[0])
+    if auth_user.is_auth():
+        db.zf_topic_inappropriate.insert(topic_id=topic_id, child_id=child_id, creation_user=auth_user.get_user_name(), creation_date=request.now.strftime('%Y-%m-%d %H:%M:%S'), read_flag=False)
+    redirect(URL(r=request, c='default', f='view_topic', args=[topic_id]))
+
+def rss():
+    import gluon.contrib.rss2 as rss2
+    import gluon.contrib.markdown as md
+
+    default_type = 'system'
+    if len(request.args) == 1:
+        rss_type = request.args[0].lower()
+        if not rss_type in ['system', 'latest']:
+            rss_type = default_type
+    else:
+        rss_type = default_type
+
+    if rss_type == 'system':
+        title = str(XML(T('pyForum Latest System Topics')))
+        descr = str(XML(T('pyForum Latest System Topics')))
+        rss_topics = forumhelper.get_system_announcements(include_content=True)
+    else:
+        title = str(XML(T('pyForum Latest Topics')))
+        descr = str(XML(T('pyForum Latest Topics')))
+        rss_topics = forumhelper.get_latest_topics(include_content=True)
+
+    rss_feed = rss2.RSS2(title = title,
+                    link = URL(r=request, c='default', f='index'),
+                    description = descr,
+                    lastBuildDate = request.now,
+                    items = [
+                        rss2.RSSItem(
+                            title = topic.title,
+                            link = URL(r=request, c='default', f='view_topic', args=[topic.id]),
+                            description = parse_content(topic.content, 'forumfull'),
+                            pubDate = topic.modifying_date) for topic in rss_topics]
+                    )
+    #raise ValueError, rss_feed
+    response.headers['Content-Type'] = 'application/rss+xml'
+    return rss2.dumps(rss_feed)
+
+def contact_admin():
+    """ Contact Admin - This can allow anonymous users to post spam, so for them, I'll add some "poor man's captcha" """
+    view_info = {}
+    view_info['errors'] = []
+    captcha = forumhelper.gen_pwd()
+    view_info['anon_captcha'] = captcha
+    view_info['anon_captcha_base64'] = base64.standard_b64encode(captcha)
+    req = request.vars
+    if req.form_submitted:
+        if req.send_b:
+            if req.subject and req.message:
+                if auth_user.is_auth() or (not auth_user.is_auth() and base64.standard_b64encode(req.captcha_response) == req.c):
+                    db.zf_admin_messages.insert(auth_user=auth_user.get_user_name(),
+                        subject=parse_content(req.subject),
+                        message=parse_content(req.message),
+                        creation_date=request.now.strftime('%Y-%m-%d %H:%M:%S'),
+                        read_flag=False)
+                    redirect(URL(r=request, c='default', f='index'))
+                else:
+                    view_info['errors'].append('Invalid humanity challenge response, please try again')
+                    return dict(request=request, view_info=view_info)
+            else:
+                view_info['errors'].append('Both Subject and Message are required fields')
+                return dict(request=request, view_info=view_info)
+        else:
+            redirect(URL(r=request, c='default', f='index'))
+    else:
+        return dict(request=request, view_info=view_info)
+
+def unauthorized():
+    return dict()
+
+def invalid_request():
+    return dict()
+
+def search():
+    search_str = request.vars.search_str.strip().lower()
+    results = []
+    view_info = {}
+    view_info['errors'] = []
+    if len(search_str) >= 3:
+        search_str = '%%%s%%' % (search_str)
+        results = db(\
+            (\
+                (\
+                    (db.zf_topic.title.lower().like(search_str)) &\
+                    (db.zf_topic.parent_flag==True)\
+                ) |\
+                (db.zf_topic.content.lower().like(search_str))\
+            ) &\
+            (db.zf_topic.disabled_flag==False) &\
+            (db.zf_forum.id==db.zf_topic.forum_id)\
+        ).select(db.zf_topic.ALL, db.zf_forum.forum_title, orderby=~db.zf_topic.modifying_date, limitby=(0, 100))
+    else:
+        view_info['errors'].append('Search string must be three or more characters')
+    return dict(request=request, search_str=request.vars.search_str, results=results, view_info=view_info)
+
+@auth_user.requires_login()
+def preferences():
+    view_info = {}
+    view_info['errors'] = []
+    view_info['props'] = {}
+    req = request.vars
+    username = auth_user.get_user_name()
+    # Avatar Restrictions (px) - Maybe we need to make these dynamic??
+    AVATAR_MAX_HEIGHT = 100
+    AVATAR_MAX_WIDTH  = 120
+    AVATAR_MAX_SIZE   = 15000 # Bytes
+    user_email = db(db.auth_users.auth_alias==username).select(db.auth_users.auth_email)[0].auth_email
+    view_info['props'].update({'real_name': forumhelper.get_member_property('zfmp_real_name', username, '')})
+    view_info['props'].update({'web_page': forumhelper.get_member_property('zfmp_web_page', username, '')})
+    view_info['props'].update({'country': forumhelper.get_member_property('zfmp_country', username, '')})
+    view_info['props'].update({'signature': forumhelper.get_member_property('zfmp_signature', username, '')})
+    view_info['props'].update({'locale': forumhelper.get_member_property('zfmp_locale', username, '')})
+    view_info['props'].update({'allow_pm_use': forumhelper.get_member_property('zfmp_allow_pm_use', username, '')})
+    view_info['props'].update({'postings': forumhelper.get_member_property('zfmp_postings', username, '0')})
+    view_info['props'].update({'last_login': forumhelper.get_member_property('zfmp_last_login', username, str(XML(T('Never'))))})
+    forum_subscriptions = db((db.zf_member_subscriptions.auth_user==username) & (db.zf_member_subscriptions.subscription_type=='F') & (db.zf_member_subscriptions.subscription_id==db.zf_forum.id) & (db.zf_member_subscriptions.subscription_active==True)).select(db.zf_forum.id, db.zf_forum.forum_title)
+    topic_subscriptions = db((db.zf_member_subscriptions.auth_user==username) & (db.zf_member_subscriptions.subscription_type=='T') & (db.zf_member_subscriptions.subscription_id==db.zf_topic.id) & (db.zf_member_subscriptions.subscription_active==True)).select(db.zf_topic.id, db.zf_topic.title)
+    available_languages = db(db.zf_available_languages.enabled==True).select(db.zf_available_languages.ALL, orderby=db.zf_available_languages.language_desc)
+
+    if req.form_submitted:
+        if req.update_b:
+            # Standard Properties
+            forumhelper.put_member_property('zfmp_real_name', username, req.real_name)
+            forumhelper.put_member_property('zfmp_web_page', username, req.web_page)
+            forumhelper.put_member_property('zfmp_country', username, req.country)
+            forumhelper.put_member_property('zfmp_signature', username, req.signature)
+            forumhelper.put_member_property('zfmp_locale', username, req.locale)
+            if req.allow_pm_use:
+                zfmp_allow_pm_use = "1"
+            else:
+                zfmp_allow_pm_use = ""
+            forumhelper.put_member_property('zfmp_allow_pm_use', username, zfmp_allow_pm_use)
+
+            # Topic Subscriptions
+            remove_topic_subscription = req.remove_topic_subscription
+            if remove_topic_subscription:
+                if type(remove_topic_subscription) == type([]):
+                    for topic_id in remove_topic_subscription:
+                        forumhelper.del_topic_subscription(int(topic_id), username)
+                else:
+                    forumhelper.del_topic_subscription(int(remove_topic_subscription), username)
+
+            # Forum Subscriptions
+            remove_forum_subscription = req.remove_forum_subscription
+            if remove_forum_subscription:
+                if type(remove_forum_subscription) == type([]):
+                    for forum_id in remove_forum_subscription:
+                        forumhelper.del_forum_subscription(int(forum_id), username)
+                else:
+                    forumhelper.del_forum_subscription(int(remove_forum_subscription), username)
+
+            # Password Changes
+            if req.new_passwd or req.new_passwd_confirm:
+                if req.new_passwd == req.new_passwd_confirm:
+                    hash_passwd = hashlib.sha1(req.new_passwd).hexdigest()
+                    #hash_passwd = sha.new(req.new_passwd).hexdigest()
+                    db(db.auth_users.auth_alias==username).update(auth_passwd=hash_passwd)
+                else:
+                    view_info['errors'].append('Password and confirmation do not match, please try again')
+
+            # Avatars
+            if req.remove_avatar:
+                db(db.zf_member_avatars.auth_user==username).update(avatar_active=False)
+                
+            # Selected Language (allow storing the "default" value (an empty string))
+            forumhelper.put_member_property('zfmp_locale', username, req.lang_code)
+
+            # Crude verification of a FileUpload object set
+            try:
+                filename = req.avatar_data.filename
+            except AttributeError:
+                filename = ''
+
+            if filename:
+                # Resource: http://epydoc.sourceforge.net/stdlib/cgi.FieldStorage-class.html
+                image_data = req.avatar_data.file.read()
+                content_type = req.avatar_data.type # "image/png"
+                doc_type, ext = content_type.split('/')
+                if doc_type == 'image':
+                    c_type, width, height = forumhelper.get_image_info(image_data)
+                    update_avatar = True
+                    if height > AVATAR_MAX_HEIGHT or width > AVATAR_MAX_WIDTH:
+                        view_info['errors'].append('Image dimensions exceed the limits set by the administrator: (H:%spx, W:%spx)' % (height, width))
+                        update_avatar = False
+                    if len(image_data) > AVATAR_MAX_SIZE:
+                        view_info['errors'].append('Avatar exceeds the maximum image size set by the administrator: %s bytes' % (len(image_data)))
+                        update_avatar = False
+
+                    if update_avatar:
+                        if forumhelper.has_member_avatar(username, bypass=False):
+                            # Update:
+                            db(db.zf_member_avatars.auth_user==username).update(content_type=content_type, avatar_image=image_data, avatar_active=True)
+                        else:
+                            # Add:
+                            db.zf_member_avatars.insert(content_type=content_type, auth_user=username, avatar_image=image_data, avatar_active=True)
+
+            if view_info['errors']:
+                return dict(request=request, view_info=view_info, username=username, user_email=user_email, forum_subscriptions=forum_subscriptions, topic_subscriptions=topic_subscriptions, available_languages=available_languages)
+            else:
+                redirect(URL(r=request, c='default', f='preferences', vars=dict(lang=req.lang_code)))
+        else:
+            redirect(URL(r=request, c='default', f='index'))
+    else:
+        return dict(request=request, view_info=view_info, username=username, user_email=user_email, forum_subscriptions=forum_subscriptions, topic_subscriptions=topic_subscriptions, available_languages=available_languages)
+
+
+def get_avatar_image():
+    auth_user = request.args[0]
+    avatar_info = db(db.zf_member_avatars.auth_user==auth_user).select(db.zf_member_avatars.content_type, db.zf_member_avatars.avatar_image)
+    response.headers['Content-Type'] = '%s' % (avatar_info[0].content_type)
+    return avatar_info[0].avatar_image

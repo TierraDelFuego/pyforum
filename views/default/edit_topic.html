@@ -1,0 +1,125 @@
+{{extend 'zlayout.html'}}
+
+<h2 class="fancy">{{=XML(T('Edit Topic'))}}</h2>
+
+{{if view_info['errors']:}}
+    <p class="err">{{=XML(T('There was one or more errors while processing your request, please correct the following'))}}</p>
+    <ul>
+        {{for error in view_info['errors']:}}
+            <li class="err">{{=XML(T(error))}}</li>
+        {{pass}}
+    </ul>
+{{pass}}
+
+
+{{if view_info.has_key('preview'):}}
+    <div class="preview bottom-separator">
+        <b>{{=XML(T('Message Preview'))}}</b>
+        <div class="hr"><hr /></div>
+        <div>{{=XML(parse_content(request.vars.get('content', ''), mode='forumfull'))}}</div>
+    </div>
+{{pass}}
+
+<form id="edit_topic_form" method="post" action="">
+    <fieldset id="edit_topic_form_fields">
+        <input type="hidden" id="form_submitted" name="form_submitted" value="1" />
+        <input type="hidden" id="warn_removal" name="warn_removal" value="{{if topic.parent_flag:}}{{=XML(T('Warning - Removing this topic will remove all of its children topics as well. Please confirm.'))}}{{else:}}{{=XML(T('Please confirm removal of this topic.'))}}{{pass}}" />
+        <input type="hidden" id="topic_id" name="topic_id" value="{{=topic.id}}" />
+        <table cellspacing="2" cellpadding="1">
+        <tbody>
+            <tr>
+                <td>{{=XML(T('Author'))}}:</td>
+                <td>{{=topic.creation_user}}</td>
+            </tr>
+            <tr>
+                <td><span class="required">*</span> {{=XML(T('Title'))}}:</td>
+                <td><input type="text" id="title" name="title" value="{{=request.vars.get('title', topic.title)}}" style="width:600px;" /></td>
+            </tr>
+            <tr>
+                <td><span class="required">*</span> {{=XML(T('Content'))}}:</td>
+                <td><textarea id="content" name="content" cols="0" rows="0" style="width:600px;height:250px;">{{=request.vars.get('content', topic.content)}}</textarea></td>
+            </tr>
+            {{if topic.parent_flag:}}
+                <tr>
+                    <td><span class="warning">*</span> <label for="locked_flag">{{=XML(T('Locked Topic'))}}:</label></td>
+                    <td><input type="checkbox" id="locked_flag" name="locked_flag" {{if request.vars.get('locked_flag', topic.locked_flag):}}checked="checked"{{pass}} /></td>
+                </tr>
+                <tr>
+                    <td><span class="warning">*</span> <label for="sticky_flag">{{=XML(T('Sticky Topic'))}}:</label></td>
+                    <td><input type="checkbox" id="sticky_flag" name="sticky_flag" {{if request.vars.get('sticky_flag', topic.sticky_flag):}}checked="checked"{{pass}} /></td>
+                </tr>
+                <tr>
+                    <td><span class="warning">*</span> <label for="system_announcement_flag">{{=XML(T('System Announcement'))}}:</label></td>
+                    <td><input type="checkbox" id="system_announcement_flag" name="system_announcement_flag" {{if request.vars.get('system_announcement_flag', topic.system_announcement_flag):}}checked="checked"{{pass}} /></td>
+                </tr>
+            {{pass}}
+            <tr>
+                <td><span class="warning">*</span> {{=XML(T('Creator'))}}:</td>
+                <td>
+                    <input type="text" id="creation_user" name="creation_user" value="{{=request.vars.get('creation_user', topic.creation_user)}}" style="width:200px;" />
+                    @
+                    <input type="text" id="creation_date" name="creation_date" value="{{=request.vars.get('creation_date', topic.creation_date.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
+                </td>
+            </tr>
+            <tr>
+                <td><span class="warning">*</span> {{=XML(T('Modificator'))}}:</td>
+                <td>
+                    <input type="text" id="modifying_user" name="modifying_user" value="{{=request.vars.get('modifying_user', topic.modifying_user)}}" style="width:200px;" />
+                    @
+                    <input type="text" id="modifying_date" name="modifying_date" value="{{=request.vars.get('modifying_date', topic.modifying_date.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
+                </td>
+            </tr>
+            <tr>
+                <td>{{=XML(T('Click on an emoticon to add it'))}}:</td>
+                <td>
+                    {{for icon in view_info['emoticons']:}}
+                        <img src="{{=URL(r=request, c='static/images', f=icon)}}" alt="{{=icon[5:icon.rfind('.')]}}" class="imgclear" style="width:16px;height:16px;"
+                             onmouseover="this.style.cursor='pointer';"
+                             onmouseout="this.style.cursor='default';"
+                             onclick="add_emoticon('{{=icon[5:icon.rfind('.')]}}');" />
+                    {{pass}}
+                </td>
+            </tr>
+        </tbody>
+        </table>
+
+        <div class="both-separator"><span class="required">* {{=XML(T('Required Fields'))}}</span></div>
+
+        <input type="submit" id="preview_b" name="preview_b" value="{{=XML(T('Preview'))}}" />
+        <input type="submit" id="edit_topic" name="edit_topic" value="{{=XML(T('Update'))}}" />
+        <input type="submit" id="remove_b" name="remove_b" value="{{=XML(T('Remove'))}}" onclick="return confirm(document.getElementById('warn_removal').value);" />
+        <input type="submit" id="cancel_b" name="cancel_b" value="{{=XML(T('Cancel'))}}" />
+
+    </fieldset>
+</form>
+
+<div class="top-separator">
+    <span class="warning">*</span>
+    <span class="small"> - {{=XML(T('Adminitrative-only options, not available to regular members'))}}.</span>
+</div>
+
+<script type="text/javascript">
+<!--
+    function add_emoticon(e_value) {
+        var emoticon_value = ':' + e_value + ':';
+        var my_field = document.getElementById('content');
+
+        //IE support
+        if (document.selection) {
+            my_field.focus();
+            sel = document.selection.createRange();
+            sel.text = emoticon_value;
+        }
+        //MOZILLA/NETSCAPE support
+        else if (my_field.selectionStart || my_field.selectionStart == 0) {
+            var start_pos = my_field.selectionStart;
+            var end_pos = my_field.selectionEnd;
+            my_field.value = my_field.value.substring(0, start_pos) + emoticon_value + my_field.value.substring(end_pos, my_field.value.length);
+        } else {
+            my_vield.value += emoticon_value;
+        }
+
+        document.getElementById('content').focus();
+    }
+//-->
+</script>
