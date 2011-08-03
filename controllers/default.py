@@ -1,15 +1,3 @@
-# QUERY Examples:
-# db(where_statement).select(field_names)
-# posts = db().select(db.zblog_posts.ALL, orderby=~db.zblog_posts.modified_on, limitby=(0, INDEX_POSTS))
-# children = db(db.zblog_posts_children.post==post.id).select(db.zblog_posts_children.ALL, orderby=db.zblog_posts_children.modified_on)
-# posts = db((\
-#           (db.zblog_posts.title.lower().like('%%%s%%' % srch_str.lower()))\
-#           |\
-#           (db.zblog_posts.content.lower().like('%%%s%%' % srch_str.lower()))\
-#           )\
-#           &\
-#           (db.zblog_posts.hidden == False)).select()
-
 import datetime
 import hashlib
 import base64
@@ -18,269 +6,283 @@ import base64
 from gluon.contrib.login_methods.email_auth import email_auth
 
 def index():
-    cat_list = []
-    cat_dict = {}
-    view_info = {}
-    # Get all available Categories/Forums/Hits, etc, etc in one single, optimized query and determine which
-    # ones the user is allowed to view.
-    # This is one of the few SQL queries that I still need to port to web2py's DAL, any takers?
-    sql = """
-    select
-        zfc.id as cat_id,
-        zfc.cat_name,
-        zfc.cat_desc,
-        zfc.cat_visible_to,
-        zfc.cat_sort,
-        zf.id as forum_id,
-        zf.forum_title,
-        zf.forum_desc,
-        zf.moderation_flag,
-        zf.anonymous_viewaccess,
-        zf.add_postings_access_roles,
-        zf.reply_postings_access_roles,
-        zf.forum_sort,
-        count(nullif(zt.parent_flag='T',0)) as parents,
-        count(nullif(zt.parent_flag='F',0)) as siblings,
-        sum(zt.hits) as hits
-    from
-        zf_forum_category as zfc
-            left join zf_forum as zf on zfc.id = zf.cat_id
-            left join zf_topic as zt on zt.forum_id = zf.id and zt.disabled_flag = 0
-    group by
-        zf.id,
-        zf.forum_title,
-        zf.forum_desc,
-        zf.moderation_flag,
-        zf.anonymous_viewaccess,
-        zf.add_postings_access_roles,
-        zfc.id,
-        zfc.cat_name,
-        zfc.cat_desc,
-        zfc.cat_visible_to,
-        zfc.cat_sort,
-        zf.reply_postings_access_roles,
-        zf.forum_sort
-    order by
-        zfc.cat_sort,
-        zf.forum_sort
-    """
-    cats_and_forums = db.executesql(sql) # Returns a tuple and each tuple element containing the column values
-    if cats_and_forums:
-        today = request.now
-        now = datetime.datetime.now()
-        for cat_forum in cats_and_forums:
-            cat_id = cat_forum[0]
-            cat_name = cat_forum[1]
-            cat_desc = cat_forum[2]
-            cat_visible_to_str = cat_forum[3]
-            cat_sort = cat_forum[4]
-            forum_id = cat_forum[5]
-            forum_title = cat_forum[6]
-            forum_desc = cat_forum[7]
-            moderation_flag = cat_forum[8]
-            anonymous_viewaccess = cat_forum[9]
-            add_postings_access_roles = cat_forum[10]
-            reply_postings_access_roles = cat_forum[11]
-            forum_sort = cat_forum[12]
-            parents = cat_forum[13]
-            siblings = cat_forum[14]
-            hits = cat_forum[15]
-
-            cat_view_access = False
-
-            cat_visible_to = cat_visible_to_str.strip().split(',')
-            # Automatic access if the user is a forum admin, or if the category itself is not
-            # restricted to noone (i.e. the "cat_visible_to" field is empty (no roles):
-            if auth_user.has_role('zAdministrator') or cat_visible_to_str.strip() == '':
-                cat_view_access = True
-            else:
-                # The "key" here relies in the "auth_user.has_role(cat)"
-                cat_view_access = [cat for cat in cat_visible_to if auth_user.has_role(cat)] != []
-
-            if cat_view_access:
-                if forum_id:
-                    posts = 0
-                    replies = 0
-                    views = 0
-
-                    if parents:
-                        posts = parents
-                    if siblings:
-                        replies = siblings
-                    if hits:
-                        views = hits
-                    
-                    # Get Forum Last Updated Data
-                    #select
-                    #    zft.modifying_user,
-                    #    zft.modifying_date,
-                    #    zft.topic_id,
-                    #    zft.parent_flag,
-                    #    zft.parent_id
-                    #from
-                    #    zf_topic as zft
-                    #where
-                    #    zft.forum_id = **forum_id**
-                    #    and zft.disabled_flag = 0
-                    #order by
-                    #    zft.modifying_date desc
-                    #limit 1
-                    #offset 0
-                    where_statement = (db.zf_topic.forum_id==forum_id) & (db.zf_topic.disabled_flag==0)
-                    last_update_info = db(where_statement).select(db.zf_topic.modifying_user,
-                        db.zf_topic.modifying_date,
-                        db.zf_topic.id,
-                        db.zf_topic.parent_flag,
-                        db.zf_topic.parent_id,
-                        orderby=~db.zf_topic.modifying_date,
-                        limitby=(0,1))
-                    if last_update_info:
-                        last_updated = last_update_info[0].modifying_date
-                        last_updated_by = last_update_info[0].modifying_user
-                        if last_update_info[0].parent_flag:
-                            last_updated_topic_id = last_update_info[0].id
+    if session.RUN_ONCE is None:
+        cat_list = []
+        cat_dict = {}
+        view_info = {}
+        # Get all available Categories/Forums/Hits, etc, etc in one single,
+        # optimized query and determine which ones the user is allowed to view.
+        # This is one of the few SQL queries that I still need to port
+        # to web2py's DAL, any takers?
+        sql = """
+        select
+            zfc.id as cat_id,
+            zfc.cat_name,
+            zfc.cat_desc,
+            zfc.cat_visible_to,
+            zfc.cat_sort,
+            zf.id as forum_id,
+            zf.forum_title,
+            zf.forum_desc,
+            zf.moderation_flag,
+            zf.anonymous_viewaccess,
+            zf.add_postings_access_roles,
+            zf.reply_postings_access_roles,
+            zf.forum_sort,
+            count(nullif(zt.parent_flag='T',0)) as parents,
+            count(nullif(zt.parent_flag='F',0)) as siblings,
+            sum(zt.hits) as hits
+        from
+            zf_forum_category as zfc
+                left join zf_forum as zf on zfc.id = zf.cat_id
+                left join zf_topic as zt on zt.forum_id = zf.id
+                and zt.disabled_flag = 0
+        group by
+            zf.id,
+            zf.forum_title,
+            zf.forum_desc,
+            zf.moderation_flag,
+            zf.anonymous_viewaccess,
+            zf.add_postings_access_roles,
+            zfc.id,
+            zfc.cat_name,
+            zfc.cat_desc,
+            zfc.cat_visible_to,
+            zfc.cat_sort,
+            zf.reply_postings_access_roles,
+            zf.forum_sort
+        order by
+            zfc.cat_sort,
+            zf.forum_sort
+        """
+        # Returns a tuple and each tuple element containing the column values
+        cats_and_forums = db.executesql(sql)
+        if cats_and_forums:
+            today = request.now
+            now = datetime.datetime.now()
+            for cat_forum in cats_and_forums:
+                cat_id = cat_forum[0]
+                cat_name = cat_forum[1]
+                cat_desc = cat_forum[2]
+                cat_visible_to_str = cat_forum[3]
+                cat_sort = cat_forum[4]
+                forum_id = cat_forum[5]
+                forum_title = cat_forum[6]
+                forum_desc = cat_forum[7]
+                moderation_flag = cat_forum[8]
+                anonymous_viewaccess = cat_forum[9]
+                add_postings_access_roles = cat_forum[10]
+                reply_postings_access_roles = cat_forum[11]
+                forum_sort = cat_forum[12]
+                parents = cat_forum[13]
+                siblings = cat_forum[14]
+                hits = cat_forum[15]
+    
+                cat_view_access = False
+    
+                cat_visible_to = cat_visible_to_str.strip().split(',')
+                # Automatic access if the user is a forum admin, or if the
+                # category itself is not restricted to noone (i.e. the
+                # "cat_visible_to" field is empty (no roles):
+                if auth_user.has_role(
+                    'zAdministrator') or cat_visible_to_str.strip() == '':
+                    cat_view_access = True
+                else:
+                    # The "key" here relies in the "auth_user.has_role(cat)"
+                    cat_view_access = [
+                        cat for cat in cat_visible_to
+                        if auth_user.has_role(cat)] != []
+    
+                if cat_view_access:
+                    if forum_id:
+                        posts = 0
+                        replies = 0
+                        views = 0
+    
+                        if parents:
+                            posts = parents
+                        if siblings:
+                            replies = siblings
+                        if hits:
+                            views = hits
+                        
+                        # Get Forum Last Updated Data
+                        #select
+                        #    zft.modifying_user,
+                        #    zft.modifying_date,
+                        #    zft.topic_id,
+                        #    zft.parent_flag,
+                        #    zft.parent_id
+                        #from
+                        #    zf_topic as zft
+                        #where
+                        #    zft.forum_id = **forum_id**
+                        #    and zft.disabled_flag = 0
+                        #order by
+                        #    zft.modifying_date desc
+                        #limit 1
+                        #offset 0
+                        where_statement = (db.zf_topic.forum_id==forum_id) & \
+                        (db.zf_topic.disabled_flag==0)
+                        last_update_info = db(
+                            where_statement).select(db.zf_topic.modifying_user,
+                            db.zf_topic.modifying_date,
+                            db.zf_topic.id,
+                            db.zf_topic.parent_flag,
+                            db.zf_topic.parent_id,
+                            orderby=~db.zf_topic.modifying_date,
+                            limitby=(0,1))
+                        if last_update_info:
+                            last_updated = last_update_info[0].modifying_date
+                            last_updated_by = last_update_info[
+                                0].modifying_user
+                            if last_update_info[0].parent_flag:
+                                last_updated_topic_id = last_update_info[0].id
+                            else:
+                                last_updated_topic_id = last_update_info[
+                                    0].parent_id
                         else:
-                            last_updated_topic_id = last_update_info[0].parent_id
-                    else:
-                        last_updated = None
-                        last_updated_by = None
-                        last_updated_topic_id = None
-
-                    # Now, lets' set a flag to mark the "last updated" message in
-                    # red (or any other visual cue) if the message is less than a day old (24 hs)
-                    if last_updated:
-                        # td is a timedelta object
-                        td = (today - last_updated).days
-                        if td == 0:
-                            update_flag = True
+                            last_updated = None
+                            last_updated_by = None
+                            last_updated_topic_id = None
+    
+                        # Now, lets' set a flag to mark the "last updated"
+                        # message in red (or any other visual cue) if the
+                        # message is less than a day old (24 hs)
+                        if last_updated:
+                            # td is a timedelta object
+                            td = (today - last_updated).days
+                            if td == 0:
+                                update_flag = True
+                            else:
+                                update_flag = False
                         else:
                             update_flag = False
+    
+                        # Now here is the deal, not everyone will be able
+                        # to view/enter a particular forum, so here is when
+                        # the logic applies. We'll check if the user logged
+                        # in or not has the role needed note that a forum
+                        # could have the role "Anonymous", which would give
+                        # an anonymous user access to the forum's topics.
+                        add_forum = False
+                        access_roles = add_postings_access_roles.split(',') + \
+                        reply_postings_access_roles.split(',')
+    
+                        if [role for role in access_roles \
+                            if auth_user.has_role(role) or \
+                            anonymous_viewaccess]:
+                            add_forum = True
+    
+                        if add_forum:
+                            if last_updated:
+                                s_last_updated = last_updated.strftime(
+                                    str(T('%b %d, %Y - %I:%M %p')))
+                            else:
+                                s_last_updated = ''
+                            forum_dict = {'forum_id': forum_id,
+                                          'forum_title': XML(forum_title),
+                                          'forum_desc': forum_desc,
+                                          'anonymous_viewaccess':
+                                            anonymous_viewaccess,
+                                          'posts': posts,
+                                          'replies': replies,
+                                          'views': views,
+                                          'forum_sort': forum_sort,
+                                          'last_updated': s_last_updated,
+                                          'last_updated_by': last_updated_by,
+                                          'last_updated_topic_id':
+                                            last_updated_topic_id,
+                                          'subscribed_to_forum':
+                                            forumhelper.has_forum_subscription(
+                                                forum_id,
+                                                auth_user.get_user_name()),
+                                          'update_flag': update_flag}
+                            if cat_dict.has_key(cat_id):
+                                cat_dict['forum_list'].append(forum_dict)
+                            else:
+                                cat_dict = {cat_id: cat_id,
+                                            'cat_id': cat_id,
+                                            'cat_name': cat_name,
+                                            'cat_sort': cat_sort,
+                                            'forum_list': [forum_dict],
+                                            'cat_visible_to': cat_visible_to,
+                                            'cat_desc': cat_desc}
+                                cat_list.append(cat_dict)
                     else:
-                        update_flag = False
+                        # Cat Visible but No Forums
+                        cat_dict = {cat_id: cat_id,
+                                    'cat_id': cat_id,
+                                    'cat_name': cat_name,
+                                    'cat_sort': cat_sort,
+                                    'forum_list': [],
+                                    'cat_visible_to': cat_visible_to,
+                                    'cat_desc': cat_desc}
+                        cat_list.append(cat_dict)
+        # Here get the latest system announceemnt to display in the top line
+        sys_topics = forumhelper.get_system_announcements(include_content=True)
+        if len(sys_topics):
+            sys_topic = sys_topics[0]
+            if type(sys_topic) != type({}):
+                view_info.update({'sys_topic': sys_topics[0]})
+                
+        return dict(cat_list=cat_list, view_info=view_info)
+    else:
+        # So apparently we have a new system install, redirect to the
+        # appropriate page:
+        redirect(URL(r=request, c='default', f='runonce'))
 
-                    # Now here is the deal, not everyone will be able to view/enter
-                    # a particular forum, so here is when the logic applies
-                    # We'll check if the user logged in or not has the role needed
-                    # note that a forum could have the role "Anonymous", which
-                    # would give an anonymous user access to the forum's topics
-                    add_forum = False
-                    access_roles = add_postings_access_roles.split(',') + reply_postings_access_roles.split(',')
 
-                    if [role for role in access_roles if auth_user.has_role(role) or anonymous_viewaccess]:
-                        add_forum = True
+def runonce():
+    """ This method will automatically be executed after initial install of
+    the system.
+    
+    """
+    if session.RUN_ONCE is not None:
+        tmp_username = session['NEW_USER']
+        tmp_passwd = session['NEW_USER_PASSWD']
+        # Remove these values from the session now..
+        session.RUN_ONCE = None
+        session.NEW_USER_PASSWD = None
+        session.RUN_ONCE = None
+        return dict(tmp_username=tmp_username, tmp_passwd=tmp_passwd)
+    else:
+        # Just die silently..
+        redirect(URL(r=request, c='default', f='index'))
 
-                    if add_forum:
-                        if last_updated:
-                            s_last_updated = last_updated.strftime(str(T('%b %d, %Y - %I:%M %p')))
-                        else:
-                            s_last_updated = ''
-                        forum_dict = {'forum_id': forum_id,
-                                      'forum_title': XML(forum_title),
-                                      'forum_desc': forum_desc,
-                                      'anonymous_viewaccess': anonymous_viewaccess,
-                                      'posts': posts,
-                                      'replies': replies,
-                                      'views': views,
-                                      'forum_sort': forum_sort,
-                                      'last_updated': s_last_updated,
-                                      'last_updated_by': last_updated_by,
-                                      'last_updated_topic_id': last_updated_topic_id,
-                                      'subscribed_to_forum': forumhelper.has_forum_subscription(forum_id, auth_user.get_user_name()),
-                                      'update_flag': update_flag}
-                        if cat_dict.has_key(cat_id):
-                            cat_dict['forum_list'].append(forum_dict)
-                        else:
-                            cat_dict = {cat_id: cat_id,
-                                        'cat_id': cat_id,
-                                        'cat_name': cat_name,
-                                        'cat_sort': cat_sort,
-                                        'forum_list': [forum_dict],
-                                        'cat_visible_to': cat_visible_to,
-                                        'cat_desc': cat_desc}
-                            cat_list.append(cat_dict)
-                else:
-                    # Cat Visible but No Forums
-                    cat_dict = {cat_id: cat_id,
-                                'cat_id': cat_id,
-                                'cat_name': cat_name,
-                                'cat_sort': cat_sort,
-                                'forum_list': [],
-                                'cat_visible_to': cat_visible_to,
-                                'cat_desc': cat_desc}
-                    cat_list.append(cat_dict)
-    # Here get the latest system announceemnt to display in the top line
-    sys_topics = forumhelper.get_system_announcements(include_content=True)
-    if len(sys_topics):
-        sys_topic = sys_topics[0]
-        if type(sys_topic) != type({}):
-            view_info.update({'sys_topic': sys_topics[0]})
-            
-    # Addition for 1.0.0+
-    # IF the system detects that the users table is empty, it'll "initialize"
-    # the first user, Administrator with password Administrator (capitalization matters)
-    register_first_user = db(db.auth_users.id > 0).count() == 0
-    if register_first_user:
-        hash_passwd = hashlib.sha1('Administrator').hexdigest()
-        auth_user_id = db.auth_users.insert(auth_alias='Administrator', auth_email='administrator@pyforum.org', auth_passwd=hash_passwd, auth_created_on=request.now, auth_modified_on=request.now)
-        # Add the CUSTOM role of zAdministrator (NOTE: THIS ROLE MUST EXIST)
-        auth_role_id = db(db.auth_roles.auth_role_name=='zAdministrator').select(db.auth_roles.id)[0].id
-        db.auth_user_role.insert(auth_user_id=auth_user_id, auth_role_id=auth_role_id)
-        # Ask in the forum if I should "automatically" authenticate the Administrator user
-        # auth_user.authenticate('Administrator', 'Administrator')
-    return dict(cat_list=cat_list, view_info=view_info)
 
 def login():
     """ Handles login actions """
+    custom_messages = {}
     errors = []
     isauth = False
     req = request.vars
     if req.form_submitted:
         if req.login_b:
-            # New in 1.0.2 - Google login is supported
-            if req.google_account is not None:
-                domain = req.auth_alias[req.auth_alias.find('@'):]
-                google_auth = email_auth(server="smtp.gmail.com:587", domain=domain)
-                if google_auth(email=req.auth_alias, password=req.passwd):
-                    # Google Authentication Correct
-                    # TODO: Insert or update the record locally as well, the password
-                    # is, for obvious reason hashed and stored locally in order to provide
-                    # the user with all the forum goodies such as PM, Preferences, etc
-                    auth_user.authenticate_google(req.auth_alias, req.passwd)
-                    isauth = True
-                else:
-                    errors.append('Invalid Username or Password entered')
+            if auth_user.authenticate(req.auth_alias, req.passwd):
+                isauth = True
             else:
-                if auth_user.authenticate(req.auth_alias, req.passwd):
-                    isauth = True
-                #rows = db((db.auth_users.auth_email == req.auth_email) & (db.auth_users.auth_passwd == req.passwd)).select()
-                #if rows:
-                #    auth_user.authenticate(req.auth_email)
-                #    isauth = True
-                else:
-                    errors.append('Invalid Username or Password entered')
-        elif req.request_pwd:
-            if req.req_email:
-                if forumhelper.emailpwd(req.req_email):
-                    errors.append('Your new password should appear in your inbox momentarily')
-                else:
-                    errors.append('A problem in the email sending process prevented the email delivery. Please contact the forum administrator.')
-            return dict(request=request, errors=errors)
+                errors.append('Invalid Username or Password entered')
         else:
-            redirect(URL(r=request, c='default', f='signup'))
+            redirect(URL(r=request, c='default', f='index'))
+    custom_messages['errors'] = errors
     if isauth:
         # Grab the Language preferences here, and send it
-        lang = forumhelper.get_member_property(property_name='zfmp_locale', auth_user=auth_user.get_user_name(), default_value='')
+        lang = forumhelper.get_member_property(
+            property_name='zfmp_locale', auth_user=auth_user.get_user_name(),
+            default_value='')
         redirect(URL(r=request, c='default', f='index', vars=dict(lang=lang)))
     else:
-        return dict(request=request, errors=errors)
+        return dict(request=request, custom_messages=custom_messages)
 
 def login_janrain():
-    token = request.vars.token # Must be posted by the external calling process
+    # Must be posted by the external calling process
+    token = request.vars.token
 
     # Part of the Janrain API docs.
     api_params = {
     'token': token,
-    'apiKey': 'a1357f66065bfa557d34c96d1116cbf50d8bf510',
+    'apiKey': '092eba675ac7eb1a3d6f82862984a2734c714829',
     'format': 'json',}
 
     # make the api call
@@ -296,7 +298,7 @@ def login_janrain():
         profile = auth_info['profile']
 
         # 'identifier' will always be in the payload
-        # this is the unique idenfifier that you use to sign the user
+        # this is the unique identifier that you use to sign the user
         # in to your site
         identifier = profile['identifier']
 
@@ -370,9 +372,12 @@ def view_forum():
 
     # Information to pass regarding system variables, etc
     # Forum Subscription:
-    view_info.update({'subscribed_to_forum': forumhelper.has_forum_subscription(forum_id, auth_user.get_user_name())})
+    view_info.update({'subscribed_to_forum':
+        forumhelper.has_forum_subscription(forum_id,
+                                           auth_user.get_user_name())})
     # Max preview length:
-    view_info.update({'zfsp_topic_teaser_length': int(forumhelper.get_system_property('zfsp_topic_teaser_length', 250))})
+    view_info.update({'zfsp_topic_teaser_length':
+        int(forumhelper.get_system_property('zfsp_topic_teaser_length', 250))})
 
     # Security Checks here
     user_can_enter = True
@@ -385,12 +390,16 @@ def view_forum():
             security_info['can_reply'] = True
         else:
             if len(forum.add_postings_access_roles):
-                security_info['can_add'] = [role for role in auth_user.get_roles() if forum.add_postings_access_roles.find(role)] != []
+                security_info['can_add'] = [
+                    role for role in auth_user.get_roles()
+                    if forum.add_postings_access_roles.find(role)] != []
             else:
                 security_info['can_add'] = True
 
             if len(forum.reply_postings_access_roles):
-                security_info['can_reply'] = [role for role in auth_user.get_roles() if forum.reply_postings_access_roles.find(role)] != []
+                security_info['can_reply'] = [
+                    role for role in auth_user.get_roles()
+                    if forum.reply_postings_access_roles.find(role)] != []
             else:
                 security_info['can_reply'] = True
 
@@ -406,31 +415,45 @@ def view_forum():
         # Pagination Manager Part I/II
         start = int(req.get('start', 0))
         #try:
-        topics_per_page = int(forumhelper.get_system_property('zfsp_threads_per_page', 15))
+        topics_per_page = int(
+            forumhelper.get_system_property('zfsp_threads_per_page', 15))
         #except:
         #    topics_per_page = 15
         
         # all Topics
-        all_topics = db((db.zf_topic.forum_id==forum_id) & (db.zf_topic.parent_flag==True)).count()
+        all_topics = db((db.zf_topic.forum_id==forum_id) & \
+            (db.zf_topic.parent_flag==True)).count()
         view_info['all_topics'] = all_topics
-        parent_topics = db((db.zf_topic.forum_id==forum_id) & (db.zf_topic.parent_flag==True)).select(orderby=(~db.zf_topic.sticky_flag, ~db.zf_topic.modifying_date), limitby=(start, start+topics_per_page))
+        parent_topics = db(
+            (db.zf_topic.forum_id==forum_id) & \
+            (db.zf_topic.parent_flag==True)).select(
+            orderby=(~db.zf_topic.sticky_flag, ~db.zf_topic.modifying_date),
+            limitby=(start, start+topics_per_page))
         
         # Pagination Manager Part II/II
-        pagination_widget = forumhelper.pagination_widget(all_topics, start, URL(r=request, c='default', f='view_forum', args=[forum.id]), 'forum')
+        pagination_widget = forumhelper.pagination_widget(
+            all_topics,
+            start,
+            URL(r=request, c='default', f='view_forum', args=[forum.id]),
+            'forum')
         view_info.update({'pagination_widget': pagination_widget})
 
         # Now plug in the information regarding their children
         topic_replies_info = {}
         for topic in parent_topics:
             # Get the number of children topics for this (parent) topic
-            topic_replies_info.update({topic.id: db(db.zf_topic.parent_id==topic.id).count()})
+            topic_replies_info.update({topic.id:
+                db(db.zf_topic.parent_id==topic.id).count()})
             # Topic Subscription
-            if forumhelper.has_topic_subscription(topic.id, auth_user.get_user_name()):
+            if forumhelper.has_topic_subscription(topic.id,
+                                                  auth_user.get_user_name()):
                 view_info.update({topic.id: {'subscribed_to_topic': True}})
             else:
                 view_info.update({topic.id: {'subscribed_to_topic': False}})
 
-        return dict(request=request, forum=forum, parent_topics=parent_topics, view_info=view_info, security_info=security_info, topic_replies_info=topic_replies_info)
+        return dict(request=request, forum=forum, parent_topics=parent_topics,
+                    view_info=view_info, security_info=security_info,
+                    topic_replies_info=topic_replies_info)
     else:
         redirect(URL(r=request, c='default', f='unauthorized'))
 
@@ -438,44 +461,66 @@ def signup():
     req = request.vars
     view_info = {}
     view_info['errors'] = []
-    allow_registration = forumhelper.get_system_property('zfsp_allow_registration', '') != ''
+    allow_registration = forumhelper.get_system_property(
+        'zfsp_allow_registration', '') != ''
     view_info.update({'allow_registration': allow_registration})
     if req.form_submitted:
         if req.register_b:
-            invalid_accounts = ['root', 'administrator', 'admin', 'zadministrator']
+            invalid_accounts = ['root', 'administrator', 'admin',
+                                'zadministrator']
             # Verify required fields
-            if len(req.auth_alias) > 0 and len(req.auth_email) > 0 and len(req.auth_passwd) > 0:
+            if len(req.auth_alias) > 0 and len(req.auth_email) > 0 and len(
+                req.auth_passwd) > 0:
                 auth_alias = req.auth_alias.strip()
                 auth_email = req.auth_email.strip()
                 auth_passwd = req.auth_passwd
                 auth_passwd_c = req.auth_passwd_c
 
                 if auth_alias.find(' ') >= 0:
-                    view_info['errors'].append('Username must not contain spaces')
+                    view_info['errors'].append('Username must not contain '
+                                               'spaces')
 
                 if auth_email.find(' ') >= 0:
                     view_info['errors'].append('Email must not contain spaces')
 
                 if auth_passwd != auth_passwd_c:
-                    view_info['errors'].append('Password and confirmation do not match')
+                    view_info['errors'].append('Password and confirmation '
+                                               'do not match')
 
                 # See if this name has been taken
-                if auth_alias.lower() in invalid_accounts or db(db.auth_users.auth_alias.upper()==auth_alias.upper()).select(db.auth_users.id):
-                    view_info['errors'].append('The selected username is unavailable, please select another one')
+                if auth_alias.lower() in invalid_accounts or db(
+                    (db.auth_users.auth_alias.lower() == auth_alias.lower()) |
+                    (db.auth_users.auth_email.lower() == auth_email.lower()) \
+                    ).select(db.auth_users.id):
+                    view_info['errors'].append('The selected username/email '
+                                               'combination is '
+                                               'unavailable, please choose '
+                                               'another one')
 
                 if not view_info['errors']:
+                    auth_token = auth_user.get_user_name() + auth_passwd
                     # Authenticate user
                     auth_email = req.auth_email
-                    hash_passwd = hashlib.sha1(auth_passwd).hexdigest()
-                    #hash_passwd = sha.new(auth_passwd).hexdigest()
-                    auth_user_id = db.auth_users.insert(auth_alias=auth_alias, auth_email=auth_email, auth_passwd=hash_passwd, auth_created_on=request.now, auth_modified_on=request.now)
-                    # Add the default role of zMember (NOTE: THIS ROLE MUST EXIST)
-                    auth_role_id = db(db.auth_roles.auth_role_name=='zMember').select(db.auth_roles.id)[0].id
-                    db.auth_user_role.insert(auth_user_id=auth_user_id, auth_role_id=auth_role_id)
+                    hash_passwd = hashlib.sha1(auth_token).hexdigest()
+                    auth_user_id = db.auth_users.insert(
+                        auth_alias=auth_alias,
+                        auth_email=auth_email,
+                        auth_passwd=hash_passwd,
+                        auth_created_on=request.now,
+                        auth_modified_on=request.now)
+                    # Add the default role of zMember
+                    # (NOTE: THIS ROLE MUST EXIST)
+                    auth_role_id = db(
+                        db.auth_roles.auth_role_name=='zMember').select(
+                        db.auth_roles.id)[0].id
+                    db.auth_user_role.insert(auth_user_id=auth_user_id,
+                                             auth_role_id=auth_role_id)
                     # Now authenticate user
                     auth_user.authenticate(auth_alias, auth_passwd)
             else:
-                view_info['errors'].append('Please make sure you fill in all the required fields in order to continue')
+                view_info['errors'].append('Please make sure you fill in all '
+                                           'the required fields in order to '
+                                           'continue')
 
             if view_info['errors']:
                 return dict(request=request, view_info=view_info)
@@ -493,7 +538,13 @@ def view_topic():
     security_info = {'can_add': False, 'can_reply': False}
     parent_topic_removed = False
     user_name = auth_user.get_user_name()
-    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png', 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png', 'icon_idea.png', 'icon_lol.png', 'icon_mad.png', 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png', 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png', 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png', 'icon_wink.png']
+    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png',
+                 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png',
+                 'icon_idea.png', 'icon_lol.png', 'icon_mad.png',
+                 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png',
+                 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png',
+                 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png',
+                 'icon_wink.png']
     view_info.update({'emoticons': emoticons})
     # Added in 1.0.3 - Captcha-like
     captcha = forumhelper.gen_pwd()
@@ -948,8 +999,8 @@ def preferences():
             # Password Changes
             if req.new_passwd or req.new_passwd_confirm:
                 if req.new_passwd == req.new_passwd_confirm:
-                    hash_passwd = hashlib.sha1(req.new_passwd).hexdigest()
-                    #hash_passwd = sha.new(req.new_passwd).hexdigest()
+                    hash_passwd = hashlib.sha1(
+                        auth_user.get_user_name() + req.new_passwd).hexdigest()
                     db(db.auth_users.auth_alias==username).update(auth_passwd=hash_passwd)
                 else:
                     view_info['errors'].append('Password and confirmation do not match, please try again')

@@ -11,12 +11,11 @@ class ForumHelper(object):
     """ Provides methods to deal with the forum's miscellaneous
     functions """
 
-    def __init__(self, request, response, session, cache, T, db, auth_user):
-        self.request = request
-        self.response = response
-        self.session = session
-        self.cache = cache
-        self.T = T
+    def __init__(self, environment, db, auth_user):
+        self.request = environment['request']
+        self.response = environment['response']
+        self.session = environment['session']
+        self.cache = environment['cache']
         self.db = db
         self.auth_user = auth_user
 

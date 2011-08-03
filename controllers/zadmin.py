@@ -14,11 +14,14 @@ def index():
     responses = db(db.zf_topic.parent_flag==False).count()
 
     views_sum = db.zf_topic.hits.sum()
-    views = db(db.zf_topic.parent_flag==True).select(views_sum)[0]._extra[views_sum]
+    views = db(db.zf_topic.parent_flag==True).select(
+        views_sum)[0]._extra[views_sum] or 0
 
     member_cnt = db.auth_users.id.count()
     members = db().select(member_cnt)[0]._extra[member_cnt]
-    return dict(request=request, categories=categories, forums=forums, topics=topics, responses=responses, views=views, members=members)
+    return dict(request=request, categories=categories, forums=forums,
+                topics=topics, responses=responses, views=views,
+                members=members)
 
 @auth_user.requires_role('zAdministrator')
 def categories():
@@ -26,7 +29,8 @@ def categories():
     view_info['errors'] = []
     re_read = False
     req = request.vars
-    categories = db().select(db.zf_forum_category.ALL, orderby=db.zf_forum_category.cat_sort)
+    categories = db().select(db.zf_forum_category.ALL,
+                             orderby=db.zf_forum_category.cat_sort)
     if req.form_submitted:
         if req.save_sort:
             # Saving sorting requested
@@ -37,17 +41,21 @@ def categories():
                         new_cat_sort = int(req['cat_id_%s' % (cat_id)])
                         save_sort = True
                     except ValueError:
-                        view_info['errors'].append('%s %s' % (XML(T('Invalid Sort Order value for')), cat.cat_name))
+                        view_info['errors'].append('%s %s' % (
+                            XML(T('Invalid Sort Order value for')),
+                            cat.cat_name))
                         save_sort = False
                     if save_sort:
                         re_read = True
-                        db(db.zf_forum_category.id==cat_id).update(cat_sort=new_cat_sort)
+                        db(db.zf_forum_category.id==cat_id).update(
+                            cat_sort=new_cat_sort)
             view_info['sort_saved'] = 1
         else:
             # Add new category requested
             redirect(URL(r=request, c='zadmin', f='add_category'))
     if re_read:
-        categories = db().select(db.zf_forum_category.ALL, orderby=db.zf_forum_category.cat_sort)
+        categories = db().select(db.zf_forum_category.ALL,
+                                 orderby=db.zf_forum_category.cat_sort)
     return dict(request=request, categories=categories, view_info=view_info)
 
 @auth_user.requires_role('zAdministrator')
@@ -63,7 +71,8 @@ def add_category():
             zmember_access = req.zmember_access
             zmember_vip_access = req.zmember_vip_access
             if not cat_name: # and cat_desc):
-                view_info['errors'].append(XML(T('Category name is a required field')))
+                view_info['errors'].append(XML(T('Category name is a required '
+                                                 'field')))
             if view_info['errors']:
                 return dict(request=request, view_info=view_info)
             else:
@@ -80,7 +89,9 @@ def add_category():
                         cat_visible_list.append('zMemberVIP')
                     cat_visible_to = ','.join(cat_visible_list)
                 # Add Category Here
-                db.zf_forum_category.insert(cat_name=cat_name, cat_desc=cat_desc, cat_visible_to=cat_visible_to)
+                db.zf_forum_category.insert(cat_name=cat_name,
+                                            cat_desc=cat_desc,
+                                            cat_visible_to=cat_visible_to)
                 redirect(URL(r=request, c='zadmin', f='categories'))
         else:
             redirect(URL(r=request, c='zadmin', f='categories'))
@@ -95,16 +106,19 @@ def edit_category():
     if req.form_submitted:
         if req.update_cat:
             cat_id = int(req.cat_id)
-            this_category = db(db.zf_forum_category.id==cat_id).select(db.zf_forum_category.ALL)[0]            
+            this_category = db(db.zf_forum_category.id==cat_id).select(
+                db.zf_forum_category.ALL)[0]            
             cat_name = req.cat_name
             cat_desc = req.cat_desc or ''
             cat_visible_list = []
             zmember_access = req.zmember_access
             zmember_vip_access = req.zmember_vip_access
             if not cat_name: # and cat_desc):
-                view_info['errors'].append(XML(T('Category name is a required field')))
+                view_info['errors'].append(XML(T('Category name is a required '
+                                                 'field')))
             if view_info['errors']:
-                return dict(request=request, view_info=view_info, this_category=this_category)
+                return dict(request=request, view_info=view_info,
+                            this_category=this_category)
             else:
                 if req.zadmin_access:
                     cat_visible_to = 'zAdministrator'
@@ -119,17 +133,22 @@ def edit_category():
                         cat_visible_list.append('zMemberVIP')
                     cat_visible_to = ','.join(cat_visible_list)
                 # Add Category Here
-                db(db.zf_forum_category.id==cat_id).update(cat_name=cat_name, cat_desc=cat_desc, cat_visible_to=cat_visible_to)
+                db(db.zf_forum_category.id == cat_id).update(
+                    cat_name=cat_name,
+                    cat_desc=cat_desc,
+                    cat_visible_to=cat_visible_to)
                 redirect(URL(r=request, c='zadmin', f='categories'))
         elif req.remove:
-            # User has requested to remove an entire category, if the category is empty, remove it immediately,
-            # otherwise send it to a page where the user can move the forums associated to the category to other 
-            # category.
+            # User has requested to remove an entire category, if the category
+            # is empty, remove it immediately, otherwise send it to a page  
+            # where the user can move the forums associated to the category
+            # to other category.
             cat_id = int(req.cat_id)
             #sql = "select count(*) from zf_forum where cat_id = %s" % (cat_id)
             forums_in_cat = db(db.zf_forum.id==cat_id).count()
             if forums_in_cat > 0:
-                redirect(URL(r=request, c='zadmin', f='del_category', args=[cat_id]))
+                redirect(URL(r=request, c='zadmin', f='del_category',
+                             args=[cat_id]))
             else:
                 db(db.zf_forum_category.id==cat_id).delete()
                 redirect(URL(r=request, c='zadmin', f='categories'))
@@ -137,45 +156,59 @@ def edit_category():
             redirect(URL(r=request, c='zadmin', f='categories'))
     else:
         cat_id = int(request.args[0])
-        this_category = db(db.zf_forum_category.id==cat_id).select(db.zf_forum_category.ALL)[0]
-        return dict(request=request, view_info=view_info, this_category=this_category)
+        this_category = db(db.zf_forum_category.id==cat_id).select(
+            db.zf_forum_category.ALL)[0]
+        return dict(request=request, view_info=view_info,
+                    this_category=this_category)
 
 
 @auth_user.requires_role('zAdministrator')
 def forums():
-    """ Main forums display page, basically show every forum for a specific category
-    and display the forum's properties """
+    """ Main forums display page, basically show every forum for a
+    specific category and display the forum's properties
+    
+    """
     req = request.vars
     view_info = {}
     view_info['errors'] = []
     cat_forums = []
     selected_category = []
     selected_cat_id = 0
-    cats = db().select(db.zf_forum_category.ALL, orderby=db.zf_forum_category.cat_name)
+    cats = db().select(db.zf_forum_category.ALL,
+                       orderby=db.zf_forum_category.cat_name)
     if req.form_submitted:
         # There can be only two options here: Save Sort or Add new Forum,
         # the first one saves all here, the secon one is a redirect
         cat_id = int(req.cat_id)
         if req.save_sort:
             re_read = False
-            cat_forums = db(db.zf_forum.cat_id==cat_id).select(db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
+            cat_forums = db(db.zf_forum.cat_id==cat_id).select(
+                db.zf_forum.ALL,
+                orderby=db.zf_forum.forum_sort)
             for forum in cat_forums:
                 if req.has_key('forum_id_%s' % (forum.id)):
                     try:
-                        forum_id_sort_value = int(req['forum_id_%s' % (forum.id)])
+                        forum_id_sort_value = int(
+                            req['forum_id_%s' % (forum.id)])
                         save_sort = True
                     except ValueError:
-                        view_info['errors'].append('%s %s' % (XML(T('Invalid sorting value for forum')), forum.forum_title))
+                        view_info['errors'].append('%s %s' % (
+                            XML(T('Invalid sorting value for forum')),
+                            forum.forum_title))
                         save_sort = False
                     if save_sort:
                         re_read = True
-                        db(db.zf_forum.id==forum.id).update(forum_sort=forum_id_sort_value)
+                        db(db.zf_forum.id==forum.id).update(
+                            forum_sort=forum_id_sort_value)
                         view_info['sort_saved'] = 1
             if re_read:
-                cat_forums = db(db.zf_forum.cat_id==cat_id).select(db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
+                cat_forums = db(db.zf_forum.cat_id==cat_id).select(
+                    db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
 
-            selected_category = db(db.zf_forum_category.id==cat_id).select(db.zf_forum_category.ALL)[0]
-            return dict(request=request, selected_category=selected_category, cat_forums=cat_forums, view_info=view_info, cats=cats)
+            selected_category = db(db.zf_forum_category.id==cat_id).select(
+                db.zf_forum_category.ALL)[0]
+            return dict(request=request, selected_category=selected_category,
+                        cat_forums=cat_forums, view_info=view_info, cats=cats)
         else:
             # User Picked "Add New Forum"
             redirect(URL(r=request, c='zadmin', f='add_forum', args=[cat_id]))
@@ -196,16 +229,19 @@ def forums():
 
         if len(selected_category):
             # Ok, a category has been selected, grab the category's forums
-            cat_forums = db(db.zf_forum.cat_id==selected_cat_id).select(db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
+            cat_forums = db(db.zf_forum.cat_id==selected_cat_id).select(
+                db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
 
-        return dict(request=request, selected_category=selected_category, cat_forums=cat_forums, view_info=view_info, cats=cats)
+        return dict(request=request, selected_category=selected_category,
+                    cat_forums=cat_forums, view_info=view_info, cats=cats)
 
 @auth_user.requires_role('zAdministrator')
 def add_forum():
     req = request.vars
     view_info = {}
     view_info['errors'] = []
-    cats = db().select(db.zf_forum_category.ALL, orderby=db.zf_forum_category.cat_name)
+    cats = db().select(db.zf_forum_category.ALL,
+                       orderby=db.zf_forum_category.cat_name)
     if req.form_submitted:
         cat_id = int(req.new_cat_id) # Always available
         if req.add_forum:
@@ -226,7 +262,8 @@ def add_forum():
                         add_postings_access_roles_list.append('zMember')
                     if req.zmember_vip_add:
                         add_postings_access_roles_list.append('zMemberVIP')
-                    add_postings_access_roles = ','.join(add_postings_access_roles_list)
+                    add_postings_access_roles = ','.join(
+                        add_postings_access_roles_list)
 
                 # Topic Reply Access Level
                 if req.zadmin_reply:
@@ -240,7 +277,8 @@ def add_forum():
                         reply_postings_access_roles_list.append('zMember')
                     if req.zmember_vip_reply:
                         reply_postings_access_roles_list.append('zMemberVIP')
-                    reply_postings_access_roles = ','.join(reply_postings_access_roles_list)
+                    reply_postings_access_roles = ','.join(
+                        reply_postings_access_roles_list)
 
                 # Will this forum be moderated?
                 if req.moderated_forum:
@@ -254,7 +292,8 @@ def add_forum():
                 else:
                     anonymous_viewaccess = False
 
-                # Will topics in this forum be displayed in the "latest Topic" section in the leftnav
+                # Will topics in this forum be displayed in the "
+                # latest Topic" section in the leftnav
                 if req.latest_topics:
                     include_latest_topics = True
                 else:
@@ -272,16 +311,22 @@ def add_forum():
                 redirect(URL(r=request, c='zadmin', f='forums', args=[cat_id]))
 
             else:
-                view_info['errors'].append(XML(T('Both forum title and description are required fields')))
-                selected_category = db(db.zf_forum_category.id==cat_id).select()[0]
-                return dict(request=request, selected_category=selected_category, cats=cats, view_info=view_info)
+                view_info['errors'].append(
+                    XML(T('Both forum title and description are required '
+                          'fields')))
+                selected_category = db(
+                    db.zf_forum_category.id==cat_id).select()[0]
+                return dict(request=request,
+                            selected_category=selected_category,
+                            cats=cats, view_info=view_info)
         else:
             # Back to forums
             redirect(URL(r=request, c='zadmin', f='forums', args=[cat_id]))
     else:
         cat_id = int(request.args[0])
         selected_category = db(db.zf_forum_category.id==cat_id).select()[0]
-        return dict(request=request, selected_category=selected_category, cats=cats, view_info=view_info)
+        return dict(request=request, selected_category=selected_category,
+                    cats=cats, view_info=view_info)
 
 
 @auth_user.requires_role('zAdministrator')
@@ -289,7 +334,8 @@ def edit_forum():
     req = request.vars
     view_info = {}
     view_info['errors'] = []
-    cats = db().select(db.zf_forum_category.ALL, orderby=db.zf_forum_category.cat_name)
+    cats = db().select(db.zf_forum_category.ALL,
+                       orderby=db.zf_forum_category.cat_name)
     if req.form_submitted:
         cat_id = int(req.new_cat_id)
         if req.update_forum:
@@ -311,7 +357,8 @@ def edit_forum():
                         add_postings_access_roles_list.append('zMember')
                     if req.zmember_vip_add:
                         add_postings_access_roles_list.append('zMemberVIP')
-                    add_postings_access_roles = ','.join(add_postings_access_roles_list)
+                    add_postings_access_roles = ','.join(
+                        add_postings_access_roles_list)
 
                 # Topic Reply Access Level
                 if req.zadmin_reply:
@@ -325,7 +372,8 @@ def edit_forum():
                         reply_postings_access_roles_list.append('zMember')
                     if req.zmember_vip_reply:
                         reply_postings_access_roles_list.append('zMemberVIP')
-                    reply_postings_access_roles = ','.join(reply_postings_access_roles_list)
+                    reply_postings_access_roles = ','.join(
+                        reply_postings_access_roles_list)
 
                 # Will this forum be moderated?
                 if req.moderated_forum:
@@ -339,7 +387,8 @@ def edit_forum():
                 else:
                     anonymous_viewaccess = False
 
-                # Will topics in this forum be displayed in the "latest Topic" section in the leftnav
+                # Will topics in this forum be displayed in the "
+                # latest Topic" section in the leftnav
                 if req.latest_topics:
                     include_latest_topics = True
                 else:
@@ -361,7 +410,9 @@ def edit_forum():
     else:
         forum_id = int(request.args[0])
         this_forum = db(db.zf_forum.id==forum_id).select()[0]
-        return dict(request=request, view_info=view_info, this_forum=this_forum, cats=cats)
+        return dict(request=request, view_info=view_info,
+                    this_forum=this_forum,
+                    cats=cats)
 
 @auth_user.requires_role('zAdministrator')
 def system_config():
@@ -375,11 +426,13 @@ def system_config():
                     if req_var[:16] == 'new_property_id_':
                         property_id = int(req[req_var])
                         new_property_value = req['new_property_value_%s' % (property_id)]
-                        db(db.zf_system_properties.id==property_id).update(property_value=new_property_value)
+                        db(db.zf_system_properties.id==property_id).update(
+                            property_value=new_property_value)
                         view_info.update({'updated': True})
 
     system_properties = forumhelper.get_system_properties()
-    return dict(request=request, system_properties=system_properties, view_info=view_info)
+    return dict(request=request, system_properties=system_properties,
+                view_info=view_info)
 
 @auth_user.requires_role('zAdministrator')
 def bad_topics():
@@ -453,17 +506,23 @@ def user_edit():
     AVATAR_MAX_HEIGHT = 100
     AVATAR_MAX_WIDTH  = 120
     AVATAR_MAX_SIZE   = 15000 # Bytes
-    available_roles = db().select(db.auth_roles.ALL, orderby=db.auth_roles.auth_role_name)
+    available_roles = db().select(db.auth_roles.ALL,
+                                  orderby=db.auth_roles.auth_role_name)
     view_info.update({'available_roles': available_roles})
     if req.form_submitted:
         username = req.username
     else:
         username = request.args[0]
 
-    user_curr_role_id = db((db.auth_users.auth_alias==username) & (db.auth_users.id==db.auth_user_role.auth_user_id)).select(db.auth_user_role.auth_role_id)[0].auth_role_id
+    user_curr_role_id = db(
+        (db.auth_users.auth_alias==username) & \
+        (db.auth_users.id==db.auth_user_role.auth_user_id)).select(
+        db.auth_user_role.auth_role_id)[0].auth_role_id
     view_info.update({'current_role_id': user_curr_role_id})
     
-    enabled_user = db((db.auth_users.auth_alias==username) & (db.auth_users.is_enabled==True)).select(db.auth_users.auth_alias)
+    enabled_user = db(
+        (db.auth_users.auth_alias==username) & \
+        (db.auth_users.is_enabled==True)).select(db.auth_users.auth_alias)
     user_email = db(db.auth_users.auth_alias==username).select(db.auth_users.auth_email)[0].auth_email
     view_info['props'].update({'real_name': forumhelper.get_member_property('zfmp_real_name', username, '')})
     view_info['props'].update({'web_page': forumhelper.get_member_property('zfmp_web_page', username, '')})
@@ -484,97 +543,135 @@ def user_edit():
             new_role = int(req.new_role)
             if (new_role != user_curr_role_id):
                 # Only change role if it was modified
-                user_id = db(db.auth_users.auth_alias==username).select(db.auth_users.id)[0].id
-                db(db.auth_user_role.auth_user_id==user_id).update(auth_role_id=new_role)
+                user_id = db(db.auth_users.auth_alias==username).select(
+                    db.auth_users.id)[0].id
+                db(db.auth_user_role.auth_user_id==user_id).update(
+                    auth_role_id=new_role)
             
             # Standard Properties
-            forumhelper.put_member_property('zfmp_real_name', username, req.real_name)
-            forumhelper.put_member_property('zfmp_web_page', username, req.web_page)
-            forumhelper.put_member_property('zfmp_country', username, req.country)
-            forumhelper.put_member_property('zfmp_signature', username, req.signature)
-            forumhelper.put_member_property('zfmp_locale', username, req.locale)
+            forumhelper.put_member_property('zfmp_real_name', username,
+                                            req.real_name)
+            forumhelper.put_member_property('zfmp_web_page', username,
+                                            req.web_page)
+            forumhelper.put_member_property('zfmp_country', username,
+                                            req.country)
+            forumhelper.put_member_property('zfmp_signature', username,
+                                            req.signature)
+            forumhelper.put_member_property('zfmp_locale', username,
+                                            req.locale)
             if req.allow_pm_use:
                 zfmp_allow_pm_use = "1"
             else:
                 zfmp_allow_pm_use = ""
-            forumhelper.put_member_property('zfmp_allow_pm_use', username, zfmp_allow_pm_use)
+            forumhelper.put_member_property('zfmp_allow_pm_use', username,
+                                            zfmp_allow_pm_use)
 
             # Topic Subscriptions
             remove_topic_subscription = req.remove_topic_subscription
             if remove_topic_subscription:
                 if type(remove_topic_subscription) == type([]):
                     for topic_id in remove_topic_subscription:
-                        forumhelper.del_topic_subscription(int(topic_id), username)
+                        forumhelper.del_topic_subscription(
+                            int(topic_id), username)
                 else:
-                    forumhelper.del_topic_subscription(int(remove_topic_subscription), username)
+                    forumhelper.del_topic_subscription(
+                        int(remove_topic_subscription), username)
 
             # Forum Subscriptions
             remove_forum_subscription = req.remove_forum_subscription
             if remove_forum_subscription:
                 if type(remove_forum_subscription) == type([]):
                     for forum_id in remove_forum_subscription:
-                        forumhelper.del_forum_subscription(int(forum_id), username)
+                        forumhelper.del_forum_subscription(int(forum_id),
+                                                           username)
                 else:
-                    forumhelper.del_forum_subscription(int(remove_forum_subscription), username)
+                    forumhelper.del_forum_subscription(
+                        int(remove_forum_subscription), username)
 
             # Password Changes
             if req.new_passwd:
                 if req.new_passwd == req.new_passwd_confirm:
-                    hash_passwd = hashlib.sha1(req.new_passwd).hexdigest()
-                    #hash_passwd = sha.new(req.new_passwd).hexdigest()
-                    db(db.auth_users.auth_alias==username).update(auth_passwd=hash_passwd)
+                    hash_passwd = hashlib.sha1(
+                        username + req.new_passwd).hexdigest()
+                    db(db.auth_users.auth_alias==username).update(
+                        auth_passwd=hash_passwd)
 
             # Avatars
             if req.remove_avatar:
-                db(db.zf_member_avatars.auth_user==username).update(avatar_active=False)
+                db(db.zf_member_avatars.auth_user==username).update(
+                    avatar_active=False)
             try:
                 filename = req.avatar_data.filename
             except AttributeError:
                 filename = ''
 
             if filename:
-                # http://epydoc.sourceforge.net/stdlib/cgi.FieldStorage-class.html
+                # http://epydoc.sourceforge.net/stdlib/
+                # (cont'd) cgi.FieldStorage-class.html
                 image_data = req.avatar_data.file.read()
                 content_type = req.avatar_data.type # "image/png"
                 doc_type, ext = content_type.split('/')
                 if doc_type == 'image':
-                    c_type, width, height = forumhelper.get_image_info(image_data)
+                    c_type, width, height = forumhelper.get_image_info(
+                        image_data)
                     if height > AVATAR_MAX_HEIGHT or width > AVATAR_MAX_WIDTH:
-                        view_info['errors'].append('Image dimensions exceed the limits set by the administrator: (H:%spx, W:%spx)' % (height, width))
+                        view_info['errors'].append('Image dimensions exceed '
+                                                   'the limits set by the '
+                                                   'administrator: (H:%spx, '
+                                                   'W:%spx)' % (height, width))
                     if len(image_data) > AVATAR_MAX_SIZE:
-                        view_info['errors'].append('Avatar exceeds the maximum image size set by the administrator: %s bytes' % (len(image_data)))
+                        view_info['errors'].append('Avatar exceeds the '
+                                                   'maximum '
+                                                   'image size set by the '
+                                                   'administrator: %s '
+                                                   'bytes' % (len(image_data)))
 
                     if len(view_info['errors']):
                         raise ValueError, view_info['errors']
                     if not view_info['errors']:
                         #raise ValueError, (c_type, width, height,)
-                        if forumhelper.has_member_avatar(username, bypass=False):
+                        if forumhelper.has_member_avatar(username,
+                                                         bypass=False):
                             # Update:
-                            db(db.zf_member_avatars.auth_user==username).update(content_type=content_type, avatar_image=image_data, avatar_active=True)
+                            db(db.zf_member_avatars.auth_user == username\
+                               ).update(content_type=content_type,
+                                        avatar_image=image_data,
+                                        avatar_active=True)
                         else:
                             # Add:
-                            db.zf_member_avatars.insert(content_type=content_type, auth_user=username, avatar_image=image_data, avatar_active=True)
+                            db.zf_member_avatars.insert(
+                                content_type=content_type, auth_user=username,
+                                avatar_image=image_data,
+                                avatar_active=True)
 
             redirect(URL(r=request, c='zadmin', f='users'))
         elif req.disable_b:
-            # Disabling is relatively easy, set the disabled flag on, and hange the user's password
+            # Disabling: set the disabled flag on,
+            # and change the user's password
             hash_passwd = hashlib.sha1(str(random.random())[2:]).hexdigest()
             #hash_passwd = sha.new(str(random.random())[2:]).hexdigest()
-            db(db.auth_users.auth_alias==username).update(auth_passwd=hash_passwd, is_enabled=False)
+            db(db.auth_users.auth_alias==username).update(
+                auth_passwd=hash_passwd, is_enabled=False)
             redirect(URL(r=request, c='zadmin', f='users'))
         elif req.enable_b:
             # Password defaults to username
             hash_passwd = hashlib.sha1(username).hexdigest()
             #hash_passwd = sha.new(username).hexdigest()
-            db(db.auth_users.auth_alias==username).update(auth_passwd=hash_passwd, is_enabled=True)
+            db(db.auth_users.auth_alias==username).update(
+                auth_passwd=hash_passwd, is_enabled=True)
             redirect(URL(r=request, c='zadmin', f='users'))
         else:
             redirect(URL(r=request, c='zadmin', f='users'))
     else:
-        return dict(request=request, view_info=view_info, username=username, user_email=user_email, forum_subscriptions=forum_subscriptions, topic_subscriptions=topic_subscriptions, available_languages=available_languages)
+        return dict(request=request, view_info=view_info, username=username,
+                    user_email=user_email,
+                    forum_subscriptions=forum_subscriptions,
+                    topic_subscriptions=topic_subscriptions,
+                    available_languages=available_languages)
 
 def get_avatar_image():
     auth_user = request.args[0]
-    avatar_info = db(db.zf_member_avatars.auth_user==auth_user).select(db.zf_member_avatars.content_type, db.zf_member_avatars.avatar_image)
+    avatar_info = db(db.zf_member_avatars.auth_user==auth_user).select(
+        db.zf_member_avatars.content_type, db.zf_member_avatars.avatar_image)
     response.headers['Content-Type'] = '%s' % (avatar_info[0].content_type)
     return avatar_info[0].avatar_image

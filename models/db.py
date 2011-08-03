@@ -35,8 +35,8 @@ db.define_table('zf_forum_category',
                 db.Field('cat_name', 'string', length=255, required=True),
                 db.Field('cat_desc', 'text', default=''),
                 db.Field('cat_visible_to', 'string', length=255, required=True),
-                db.Field('cat_sort', 'integer', required=True, default=0),
-                migrate=migrate, fake_migrate=fake_migrate)
+                db.Field('cat_sort', 'integer', required=False, default=0),
+                migrate='zf_forum_category.table', fake_migrate=fake_migrate)
 
 # zf_forum
 # This is the topics container and in itself it a containee of a category
@@ -50,7 +50,7 @@ db.define_table('zf_forum',
                 db.Field('reply_postings_access_roles', 'string', length=255, default=''),
                 db.Field('include_latest_topics', 'boolean', required=True, default=True),
                 db.Field('forum_sort', 'integer', required=True, default=0),
-                migrate=migrate, fake_migrate=fake_migrate) 
+                migrate='zf_forum.table', fake_migrate=fake_migrate) 
 
 # zf_topic
 # This is the actual topic, it depends exclusively on zf_forum
@@ -72,7 +72,7 @@ db.define_table('zf_topic',
                 db.Field('system_announcement_flag', 'boolean', required=False),
                 db.Field('reply_to_topic_id', 'integer', required=True, default=0),
                 db.Field('ip_address', 'string', required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_topic.table', fake_migrate=fake_migrate)
 
 # System Support Tables
 
@@ -81,21 +81,21 @@ db.define_table('zf_system_properties',
                 db.Field('property_name', 'string', length=128, required=True),
                 db.Field('property_desc', 'text', required=True),
                 db.Field('property_value', 'text', required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_system_properties.table', fake_migrate=fake_migrate)
 
 # Member Properties (Skeleton) (Available member Properties)
 db.define_table('zf_member_properties_skel',
                 db.Field('property_name', 'string', length=128, required=True),
                 db.Field('property_desc', 'text', required=True),
                 db.Field('member_editable', 'boolean', default=False),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_properties_skel.table', fake_migrate=fake_migrate)
 
 # Member Properties (For each member)
 db.define_table('zf_member_properties',
                 db.Field('auth_user', 'string', length=255, required=True),
                 db.Field('property_id', db.zf_member_properties_skel),
                 db.Field('property_value', 'string', length=255, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_properties.table', fake_migrate=fake_migrate)
 
 # Avatars
 db.define_table('zf_member_avatars',
@@ -103,7 +103,7 @@ db.define_table('zf_member_avatars',
                 db.Field('auth_user', 'string', length=255, required=True),
                 db.Field('avatar_image', 'blob', required=True, default=None),
                 db.Field('avatar_active', 'boolean', required=True, default=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_avatars.table', fake_migrate=fake_migrate)
 
 # Member Subscriptions (subscription_type =  ENUM('f', 't') --> Forum or Topic
 db.define_table('zf_member_subscriptions',
@@ -111,7 +111,7 @@ db.define_table('zf_member_subscriptions',
                 db.Field('subscription_id', 'integer', required=True, default=0),
                 db.Field('subscription_type', 'string', required=True),
                 db.Field('subscription_active', 'boolean', default=True, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_subscriptions.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_member_subscriptions_notification',
                 db.Field('auth_user', 'string', length=255, required=True, default=''),
@@ -119,13 +119,14 @@ db.define_table('zf_member_subscriptions_notification',
                 db.Field('subscription_type', 'string', required=True),
                 db.Field('creation_date', 'datetime', required=True),
                 db.Field('is_processed', 'boolean', default=False, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_subscriptions_notification.table',
+                fake_migrate=fake_migrate)
 
 # Member Personal Messages
 db.define_table('zf_pm_categories',
                 db.Field('display_order', 'integer', required=True, default=0),
                 db.Field('name', 'string', length=128, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_pm_categories.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_pm',
                 db.Field('cat_id', db.zf_pm_categories),
@@ -135,7 +136,7 @@ db.define_table('zf_pm',
                 db.Field('subject', 'string', length=255, required=True),
                 db.Field('message', 'text', required=True),
                 db.Field('creation_date', 'datetime', required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_pm.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_admin_messages',
                 db.Field('auth_user', 'string', length=255, required=True),
@@ -143,18 +144,18 @@ db.define_table('zf_admin_messages',
                 db.Field('message', 'text', required=True),
                 db.Field('creation_date', 'datetime', required=True),
                 db.Field('read_flag', 'boolean', default=False, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_admin_messages.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_available_languages',
                 db.Field('language_code', 'string', required=True, length=5),
                 db.Field('language_desc', 'string', required=True, length=255),
                 db.Field('enabled', 'boolean', required=True, default=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_available_languages.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_member_rank',
                 db.Field('rank_name', 'string', required=True, length=128),
                 db.Field('rank_value_min', 'integer', required=True, default=0),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_rank.table', fake_migrate=fake_migrate)
                 
 db.define_table('zf_topic_inappropriate',
                 db.Field('topic_id', db.zf_topic),
@@ -162,17 +163,17 @@ db.define_table('zf_topic_inappropriate',
                 db.Field('creation_user', 'string', required=True, length=255),
                 db.Field('creation_date', 'datetime', required=True),
                 db.Field('read_flag', 'boolean', default=False, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_topic_inappropriate.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_member_banned',
                 db.Field('auth_user', 'string', required=True, length=255),
                 db.Field('ban_date', 'datetime', required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_member_banned.table', fake_migrate=fake_migrate)
 
 db.define_table('zf_ip_banned',
                 db.Field('ip', 'string', length=255, required=True),
                 db.Field('ban_date', 'datetime', required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='zf_ip_banned.table', fake_migrate=fake_migrate)
 
 ## Authentication Schema (3 tables)
 db.define_table('auth_users',
@@ -181,19 +182,20 @@ db.define_table('auth_users',
                 db.Field('auth_passwd', 'string', length=128, required=True),
                 db.Field('auth_created_on', 'string', required=True),
                 db.Field('auth_modified_on', 'string', required=True),
-                db.Field('is_enabled', 'boolean', required=True, default=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                db.Field('is_enabled', 'boolean', required=False, default=True),
+                migrate='auth_users.table', fake_migrate=fake_migrate)
 
 # Roles: Manager, Approver, Reviewer, etc
 db.define_table('auth_roles',
-                db.Field('auth_role_name', 'string', length=128, required=True),
-                migrate=migrate, fake_migrate=fake_migrate)
+                db.Field('auth_role_name', 'string', length=128,
+                         required=True),
+                migrate='auth_roles.table', fake_migrate=fake_migrate)
 
 # User/Role Mapping
 db.define_table('auth_user_role',
                 db.Field('auth_user_id', db.auth_users),
                 db.Field('auth_role_id', db.auth_roles),
-                migrate=migrate, fake_migrate=fake_migrate)
+                migrate='auth_user_role.table', fake_migrate=fake_migrate)
 
 # Next, verify that the necessary table information exists in the system,
 # otherwise create it
@@ -201,6 +203,9 @@ if not db(db.auth_roles.id > 0).count():
     data_list = []
     data_list.append({'auth_role_name': 'zAdministrator'})
     data_list.append({'auth_role_name': 'zMember'})
+    # This role can be used to effectively have to member lists,
+    # They can potentially share memberships
+    data_list.append({'auth_role_name': 'zMemberVIP'})
     db.auth_roles.bulk_insert(data_list)
     
 if not db(db.zf_member_properties_skel.id > 0).count():
@@ -236,7 +241,7 @@ if not db(db.zf_member_properties_skel.id > 0).count():
                       'property_desc': 'Member Full Name',
                       'member_editable': True})
     db.zf_member_properties_skel.bulk_insert(data_list)
-    
+
 if not db(db.zf_system_properties.id > 0).count():
     data_list = []
     data_list.append({'property_name': 'zfsp_threads_per_page',
@@ -369,26 +374,26 @@ if not db(db.zf_member_rank.id > 0).count():
     db.zf_member_rank.bulk_insert(data_list)
 
 if not db(db.auth_users.id > 0).count():
-    temp_alias = 'Administrator'
+    temp_alias = 'administrator'
     temp_email = 'administrator@pyforum.org'
-    temp_passwd = 'password'
+    temp_passwd = forumhelper.gen_pwd()
     # New User - add it with the default role of Member
     # NOTE: THIS ROLE MUST EXIST
-    auth_role_id = self.db(
-        self.db.auth_roles.role_name=='zMember').select(
-            self.db.auth_roles.id)[0].id
-    auth_user_id = self.db.auth_users.insert(
+    auth_role_id = db(
+        db.auth_roles.auth_role_name=='zAdministrator').select(
+        db.auth_roles.id)[0].id
+    auth_user_id = db.auth_users.insert(
         auth_email=temp_email,
         auth_alias=temp_alias,
-        auth_passwd=hashlib.sha1(temp_passwd).hexdigest(),
+        auth_passwd=hashlib.sha1(temp_alias + temp_passwd).hexdigest(),
         auth_created_on=request.now,
         auth_modified_on=request.now,
         is_enabled=True)    
     # Also, add this user's default role to the corresponding table.
-    self.db.auth_user_role.insert(auth_user_id=auth_user_id,
-                                  auth_role_id=auth_role_id)
+    db.auth_user_role.insert(auth_user_id=auth_user_id,
+                             auth_role_id=auth_role_id)
     # Stuff this info into the session, a bit of magic here since web2py
     # "provides" us with a session object in our environment
     session.RUN_ONCE = 1
-    session.NEW_USER = auth_alias
-    session.NEW_USER_PASSWD = auth_passwd
+    session.NEW_USER = temp_alias
+    session.NEW_USER_PASSWD = temp_passwd
