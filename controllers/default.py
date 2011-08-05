@@ -1,9 +1,29 @@
 import datetime
 import hashlib
 import base64
+import urllib2
+import urllib
+import json
 
 
 from gluon.contrib.login_methods.email_auth import email_auth
+
+# IDE "helper" not part of the framework
+if False:
+    from gluon.globals import *
+    from gluon.html import *
+    from gluon.http import *
+    #from gluon.sqlhtml import SQLFORM, SQLTABLE, form_factory
+    session = Session()
+    request = Request()
+    response = Response()
+    # The following three lines are application-specific and used just so
+    # komodo (edit) (or even other IDEs sich as Wing) "finds" the methods
+    # for my classes, this does not have anyhing to do with the web2py
+    # framework itself, as I am already instantiating "auth_user",
+    # "stackhelper" etc in one of my models...
+    from pyforum.modules.auth import CustomAuthentication as auth_user
+    from pyforum.modules.forumhelper import ForumHelper as forumhelper
 
 def index():
     if session.RUN_ONCE is None:
@@ -317,7 +337,7 @@ def login_janrain():
         form_vars = {}
 
         # Now, update some properties
-        stackhelper.put_member_property('m_last_login', user_id, request.now)
+        stackhelper.put_member_property('zfmp_last_login', user_id, request.now)
         # Only update Name (m_display_name) if the field is actually empty
         if stackhelper.get_member_property(
             'm_display_name',

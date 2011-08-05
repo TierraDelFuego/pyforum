@@ -1,9 +1,11 @@
 # Custom Authentication Class
 # Implementation similar to gluon.tools
 
+import hashlib
+
+
 from gluon.html import URL
 from gluon.http import redirect
-import hashlib
 
 # Authentication in pyForum will work in the following way:
 #
@@ -32,6 +34,7 @@ import hashlib
 # with your google account (without pyForum even knowing the google's pwd of
 # curse, man I'm _good_ :)
 
+
 class CustomAuthentication(object):
     """ Role-Based authentication module """
 
@@ -44,7 +47,8 @@ class CustomAuthentication(object):
         self.db = db
         self._anonymous_user = 'Anonymous User'
         self.environment = environment
-
+        self.__id = None
+        self.__user_id = None
 
     def __call__(self):
         """ Returns the username """
@@ -53,22 +57,21 @@ class CustomAuthentication(object):
             _auth_name = self._anonymous_user
         return _auth_name
 
-
     def authenticate(self, auth_alias, auth_passwd):
         """ sets authentication for the user """
         auth = False
-        self.logout() # Clear up previous session if any
+        self.logout()  # Clear up previous session if any
         hash_pwd = hashlib.sha1('%s%s' % (auth_alias, auth_passwd)).hexdigest()
-        rows = self.db((self.db.auth_users.auth_alias==auth_alias) &
-            (self.db.auth_users.auth_passwd==hash_pwd) &
-            (self.db.auth_users.is_enabled==True)).select()
+        rows = self.db((self.db.auth_users.auth_alias == auth_alias) &
+            (self.db.auth_users.auth_passwd == hash_pwd) &
+            (self.db.auth_users.is_enabled == True)).select()
         if rows:
+            self.__user_id = rows[0].id
             self.session.auth_alias = auth_alias
-            self.session.user_id = rows[0].id
+            self.session.user_id = self.__user_id
             auth = True
         return auth
 
-   
     def authenticate_janrain(self, identifier, name, email, profile_pic_url):
         """ Authenticates against JANRAIN, formerly RPX, an authentication
         provider, see http://janrain.com/ for more information
@@ -83,10 +86,10 @@ class CustomAuthentication(object):
         # (name, email)
         # In addition, I am not (currently doing anything with profile_pic_url
         # or identifier but they might come in handy later.
-        self.logout() # Clear up previous session if any
+        self.logout()  # Clear up previous session if any
         user = self.db(
-            (self.db.auth_users.auth_email==email) &
-            (self.db.auth_users.is_enabled==True)).select().first()
+            (self.db.auth_users.auth_email == email) &
+            (self.db.auth_users.is_enabled == True)).select().first()
         if user is None:
             # User does not exist, create it
             # This password is fake, not used for anything really...
@@ -94,7 +97,7 @@ class CustomAuthentication(object):
             # New User - add it with the default role of Member
             # NOTE: THIS ROLE MUST EXIST
             auth_role_id = self.db(
-                self.db.auth_roles.role_name=='zMember').select(
+                self.db.auth_roles.role_name == 'zMember').select(
                     self.db.auth_roles.id)[0].id
             auth_user_id = self.db.auth_users.insert(
                 auth_email=email,
@@ -103,30 +106,29 @@ class CustomAuthentication(object):
                 auth_created_on=self.request.now,
                 auth_modified_on=self.request.now,
                 is_enabled=True)
-            
+
             # Also, add this user's default role to the corresponding table.
             self.db.auth_user_role.insert(auth_user_id=auth_user_id,
                                           auth_role_id=auth_role_id)
             # Read the (new) user's back
             user = self.db(
-                (self.db.auth_users.auth_alias==email) &
-                (self.db.auth_users.is_enabled==True)).select().first()
-        user_id = user.id # Convenience
+                (self.db.auth_users.auth_alias == email) &
+                (self.db.auth_users.is_enabled == True)).select().first()
+        user_id = user.id  # Convenience
+        self.__user_id = user_id
         self.__id = user_id
         self.session.auth_alias = email
         self.session.user_id = user_id
         return user_id
 
-
     def logout(self):
         """ Clear the session """
         self.session.auth_alias = None
 
-
     def has_role(self, roles):
         """ Receives a comma-separated string containing the roles to check
         and will return True if the user contains any of the passed roles
-        
+
         """
         hasrole = False
         roles_to_check = roles.split(',')
@@ -143,28 +145,35 @@ class CustomAuthentication(object):
             #   au.auth_alias = %(auth_alias)s
             #   and au.id = aur.auth_user_id
             #   and aur.auth_role_id = ar.id
-            user_roles = self.db((self.db.auth_users.auth_alias == auth_alias) &\
-                                 (self.db.auth_users.id == self.db.auth_user_role.auth_user_id) &\
-                                 (self.db.auth_user_role.auth_role_id == self.db.auth_roles.id)).select(self.db.auth_roles.auth_role_name)
+            user_roles = self.db(
+                (self.db.auth_users.auth_alias == auth_alias) &\
+                (self.db.auth_users.id == \
+                 self.db.auth_user_role.auth_user_id) &\
+                (self.db.auth_user_role.auth_role_id == \
+                 self.db.auth_roles.id)).select(
+                self.db.auth_roles.auth_role_name)
             if user_roles:
-                roles_found = [each_role for each_role in user_roles if each_role.auth_role_name in roles_to_check]
+                roles_found = [each_role for each_role in user_roles
+                               if each_role.auth_role_name in roles_to_check]
                 if roles_found:
                     hasrole = True
         return hasrole
-
 
     def get_roles(self):
         """ Returns a list of roles the user belongs to """
         roles = []
         if self.is_auth():
             auth_alias = self.get_user_name()
-            user_roles = self.db((self.db.auth_users.auth_alias==auth_alias) &\
-                                 (self.db.auth_users.id==self.db.auth_user_role.auth_user_id) &\
-                                 (self.db.auth_user_role.auth_role_id==self.db.auth_roles.id)).select(self.db.auth_roles.auth_role_name)
+            user_roles = self.db(
+                (self.db.auth_users.auth_alias == auth_alias) &\
+                (self.db.auth_users.id == \
+                 self.db.auth_user_role.auth_user_id) &\
+                (self.db.auth_user_role.auth_role_id == \
+                 self.db.auth_roles.id)).select(
+                self.db.auth_roles.auth_role_name)
             if user_roles:
                 roles = [each_role.auth_role_name for each_role in user_roles]
-        return roles    
-
+        return roles
 
     def get_user_name(self):
         """ same as __call__ - returns the username (alias) """
@@ -173,50 +182,68 @@ class CustomAuthentication(object):
             _auth_name = self._anonymous_user
         return _auth_name
 
-
     def get_user_email(self):
         """ If auth, gets the user alias from the database """
         if self.is_auth():
-            user_email = self.db(self.db.auth_users.auth_alias==self.get_user_name()).select(self.db.auth_users.auth_email)[0].auth_email
+            user_email = self.db(
+                self.db.auth_users.auth_alias == self.get_user_name()).select(
+                self.db.auth_users.auth_email)[0].auth_email
         else:
             user_email = None
         return user_email
 
-
     def is_auth(self):
-        """ True if the user has been authenticated in the system, false otherwise """
+        """ True if the user has been authenticated in the system,
+        false otherwise
+
+        """
         return self.session.auth_alias is not None
 
-
     def is_admin(self):
-        """ This is a hack-y method (or shortcut) that can become useful in the future if the
-        developer decides that "zAdministrator" should not be the only "admin" in the system """
+        """ This is a hack-y method (or shortcut) that can become useful in
+        the future if the developer decides that "zAdministrator" should
+        not be the only "admin" in the system
+
+        """
         return self.has_role('zAdministrator')
 
+    def get_user_id(self):
+        """ Returns the ID (Numeric) for the authentcated user, or None
+        if the user is not authenticated in the system
+
+        """
+        return self.__id
 
     def requires_login(self):
-        """ Decorator Helper to aid in determine whether a controller needs specific access """
+        """ Decorator Helper to aid in determine whether a controller needs
+        specific access
+
+        """
         def wrapper(func):
 
             def f(*args, **kwargs):
                 if not self.is_auth():
-                    return redirect(URL(r=self.request, c='default', f='login'))
+                    return redirect(URL(r=self.request, c='default',
+                                        f='login'))
                 return func(*args, **kwargs)
 
             return f
 
         return wrapper
 
-
     def requires_role(self, roles):
-        """ Decorator Helper to aid in determine whether a controller needs specific access """
+        """ Decorator Helper to aid in determine whether a controller needs
+        specific access
+
+        """
         def wrapper(func):
 
             def f(*args, **kwargs):
                 if not self.has_role(roles):
-                    return redirect(URL(r=self.request, c='default', f='login'))
+                    return redirect(URL(r=self.request, c='default',
+                                        f='login'))
                 return func(*args, **kwargs)
 
             return f
 
-        return wrapper 
+        return wrapper
