@@ -25,12 +25,12 @@
             {{for idx, user in enumerate(users):}}
                 <tr class="{{if not user.is_enabled:}}shadedarker{{else:}}shadelight{{pass}}">
                     <td class="cell3d center-xy">{{=idx + 1}}</td>
-                    <td class="cell3d center-xy"><a href="{{=URL(r=request, c='zadmin', f='user_edit', args=[user.auth_alias])}}" title="{{=XML(T('Edit User'))}}" class="linkb">{{=user.auth_alias}}</a></td>
+                    <td class="cell3d center-xy"><a href="{{=URL(r=request, c='zadmin', f='user_edit', args=[user.id])}}" title="{{=XML(T('Edit User'))}}" class="linkb">{{=forumhelper.get_member_property('zfmp_display_name', user.id, 'user_%s' % (user.id))}}</a></td>
                     <td class="cell3d center-xy"><a href="mailto:{{=user.auth_email}}" title="{{=user.auth_email}}">{{=user.auth_email}}</a></td>
-                    <td class="cell3d center-xy">{{=view_info['users'][user.auth_alias]['roles']}}</a></td>
-                    <td class="cell3d center-xy">{{=view_info['users'][user.auth_alias]['posts']}}</td>
-                    <td class="cell3d center-xy">{{=view_info['users'][user.auth_alias]['replies']}}</td>
-                    <td class="cell3d center-xy">{{=view_info['users'][user.auth_alias]['join_date']}}</td>
+                    <td class="cell3d center-xy">{{=view_info['users'][user.id]['roles']}}</a></td>
+                    <td class="cell3d center-xy">{{=view_info['users'][user.id]['posts']}}</td>
+                    <td class="cell3d center-xy">{{=view_info['users'][user.id]['replies']}}</td>
+                    <td class="cell3d center-xy">{{=view_info['users'][user.id]['join_date']}}</td>
                 </tr>
             {{pass}}
         </tbody>

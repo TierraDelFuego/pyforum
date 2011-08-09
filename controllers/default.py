@@ -6,8 +6,6 @@ import urllib
 import json
 
 
-from gluon.contrib.login_methods.email_auth import email_auth
-
 # IDE "helper" not part of the framework
 if False:
     from gluon.globals import *
@@ -128,7 +126,7 @@ def index():
                         
                         # Get Forum Last Updated Data
                         #select
-                        #    zft.modifying_user,
+                        #    zft.modifying_user_if,
                         #    zft.modifying_date,
                         #    zft.topic_id,
                         #    zft.parent_flag,
@@ -145,7 +143,8 @@ def index():
                         where_statement = (db.zf_topic.forum_id==forum_id) & \
                         (db.zf_topic.disabled_flag==0)
                         last_update_info = db(
-                            where_statement).select(db.zf_topic.modifying_user,
+                            where_statement).select(
+                            db.zf_topic.modifying_user_id,
                             db.zf_topic.modifying_date,
                             db.zf_topic.id,
                             db.zf_topic.parent_flag,
@@ -155,7 +154,7 @@ def index():
                         if last_update_info:
                             last_updated = last_update_info[0].modifying_date
                             last_updated_by = last_update_info[
-                                0].modifying_user
+                                0].modifying_user_id
                             if last_update_info[0].parent_flag:
                                 last_updated_topic_id = last_update_info[0].id
                             else:
@@ -647,9 +646,11 @@ def view_topic():
                 # This test must be evaluated when:
                 # - The User is Anonymous
                 # - AND the forum allow anonymous replies
-                view_info['errors'].append('Please make sure all required fields are properly filled')
+                view_info['errors'].append('Please make sure all required '
+                                           'fields are properly filled')
                 view_info.update({'preview': True})
-            elif req.add and (security_info['can_reply'] or auth_user.is_admin()):
+            elif req.add and (security_info['can_reply'] or \
+                              auth_user.is_admin()):
                 if req.response_content.strip():
                     now = request.now.strftime('%Y-%m-%d %H:%M:%S')
                     # User is requesting addition of a response (child topic)
@@ -671,7 +672,8 @@ def view_topic():
                         reply_to_topic_id=0,
                         ip_address=request.remote_addr)
 
-                    # Update the modifying date, and the modifying user of its parent also
+                    # Update the modifying date, and the modifying user of
+                    # its parent also
                     db(db.zf_topic.id == topic_id).update(
                         modifying_date=now,
                         modifying_user_id=user_id)
@@ -867,7 +869,25 @@ def edit_topic():
     view_info['errors'] = []
     view_info['messages'] = []
     security_info = {'can_add': False, 'can_reply': False}
-    emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png', 'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png', 'icon_idea.png', 'icon_lol.png', 'icon_mad.png', 'icon_mrgreen.png', 'icon_neutral.png', 'icon_question.png', 'icon_razz.png', 'icon_redface.png', 'icon_rolleyes.png', 'icon_sad.png', 'icon_smile.png', 'icon_twisted.png', 'icon_wink.png']
+    emoticons = ['icon_arrow.png',
+                 'icon_biggrin.png',
+                 'icon_confused.png',
+                 'icon_cool.png',
+                 'icon_cry.png',
+                 'icon_exclaim.png',
+                 'icon_idea.png',
+                 'icon_lol.png',
+                 'icon_mad.png',
+                 'icon_mrgreen.png',
+                 'icon_neutral.png',
+                 'icon_question.png',
+                 'icon_razz.png',
+                 'icon_redface.png',
+                 'icon_rolleyes.png',
+                 'icon_sad.png',
+                 'icon_smile.png',
+                 'icon_twisted.png',
+                 'icon_wink.png']
     view_info.update({'emoticons': emoticons})
     if req.form_submitted:
         topic_id = int(req.topic_id)
@@ -875,7 +895,8 @@ def edit_topic():
         forum_id = topic.forum_id
 
         if req.edit_topic:
-            if req.title and req.content and req.creation_user and req.creation_date and req.modifying_user and req.modifying_date:
+            if req.title and req.content and req.creation_user and \
+            req.creation_date and req.modifying_user and req.modifying_date:
                 title = parse_content(req.title)
                 creation_user = req.creation_user
                 creation_date = req.creation_date
@@ -886,12 +907,13 @@ def edit_topic():
                     parent_topic_id = topic_id
                     locked_flag = req.locked_flag is not None
                     sticky_flag = req.sticky_flag is not None
-                    system_announcement_flag = req.system_announcement_flag is not None
+                    system_announcement_flag = req.system_announcement_flag \
+                                               is not None
                     db(db.zf_topic.id==topic_id).update(title=title,
                         content=req.content,
-                        creation_user=creation_user,
+                        creation_user_id=creation_user,
                         creation_date=creation_date,
-                        modifying_user=modifying_user,
+                        modifying_user_id=modifying_user,
                         modifying_date=modifying_date,
                         locked_flag=locked_flag,
                         sticky_flag=sticky_flag,
@@ -901,11 +923,12 @@ def edit_topic():
                     # Just Update child-required fields
                     db(db.zf_topic.id==topic_id).update(title=title,
                         content=req.content,
-                        creation_user=creation_user,
+                        creation_user_id=creation_user,
                         creation_date=creation_date,
-                        modifying_user=modifying_user,
+                        modifying_user_id=modifying_user,
                         modifying_date=modifying_date)
-                redirect(URL(r=request, c='default', f='view_topic', args=[parent_topic_id]))
+                redirect(URL(r=request, c='default', f='view_topic',
+                             args=[parent_topic_id]))
             else:
                 view_info['errors'].append('All fields are required')
                 return dict(request=request, topic=topic, view_info=view_info)
@@ -917,18 +940,21 @@ def edit_topic():
                 parent_topic_id = topic_id
                 db(db.zf_topic.parent_id==parent_topic_id).delete()
                 db(db.zf_topic.id==parent_topic_id).delete()
-                redirect_to = URL(r=request, c='default', f='view_forum', args=[forum_id])
+                redirect_to = URL(r=request, c='default', f='view_forum',
+                                  args=[forum_id])
             else:
                 parent_topic_id = topic.parent_id
                 db(db.zf_topic.id==topic_id).delete()
-                redirect_to = URL(r=request, c='default', f='view_topic', args=[parent_topic_id])
+                redirect_to = URL(r=request, c='default', f='view_topic',
+                                  args=[parent_topic_id])
             redirect(redirect_to)
         else:
             if topic.parent_flag:
                 parent_topic_id = topic.id
             else:
                 parent_topic_id = topic.parent_id
-            redirect(URL(r=request, c='default', f='view_topic', args=[parent_topic_id]))
+            redirect(URL(r=request, c='default', f='view_topic',
+                         args=[parent_topic_id]))
     else:
         topic_id = int(request.args[0])
         topic = db(db.zf_topic.id==topic_id).select()[0]
@@ -938,7 +964,12 @@ def report_inappropriate():
     topic_id = int(request.args[1])
     child_id = int(request.args[0])
     if auth_user.is_auth():
-        db.zf_topic_inappropriate.insert(topic_id=topic_id, child_id=child_id, creation_user=auth_user.get_user_name(), creation_date=request.now.strftime('%Y-%m-%d %H:%M:%S'), read_flag=False)
+        db.zf_topic_inappropriate.insert(
+            topic_id=topic_id,
+            child_id=child_id,
+            creation_user_id=auth_user.get_user_id(),
+            creation_date=request.now,
+            read_flag=False)
     redirect(URL(r=request, c='default', f='view_topic', args=[topic_id]))
 
 def rss():
@@ -969,11 +1000,13 @@ def rss():
                     items = [
                         rss2.RSSItem(
                             title = topic.title,
-                            link = URL(r=request, c='default', f='view_topic', args=[topic.id]),
-                            description = parse_content(topic.content, 'forumfull'),
-                            pubDate = topic.modifying_date) for topic in rss_topics]
+                            link = URL(r=request, c='default', f='view_topic',
+                                       args=[topic.id]),
+                            description = parse_content(topic.content,
+                                                        'forumfull'),
+                            pubDate = topic.modifying_date) \
+                        for topic in rss_topics]
                     )
-    #raise ValueError, rss_feed
     response.headers['Content-Type'] = 'application/rss+xml'
     return rss2.dumps(rss_feed)
 
@@ -1027,20 +1060,19 @@ def search():
     view_info['errors'] = []
     if len(search_str) >= 3:
         search_str = '%%%s%%' % (search_str)
-        results = db(\
-            (\
-                (\
-                    (db.zf_topic.title.lower().like(search_str)) &\
-                    (db.zf_topic.parent_flag==True)\
-                ) |\
-                (db.zf_topic.content.lower().like(search_str))\
-            ) &\
-            (db.zf_topic.disabled_flag==False) &\
-            (db.zf_forum.id==db.zf_topic.forum_id)\
-        ).select(db.zf_topic.ALL, db.zf_forum.forum_title, orderby=~db.zf_topic.modifying_date, limitby=(0, 100))
+        results = db(((
+            (db.zf_topic.title.lower().like(search_str)) &
+            (db.zf_topic.parent_flag==True)) |
+            (db.zf_topic.content.lower().like(search_str))) &
+            (db.zf_topic.disabled_flag==False) &
+            (db.zf_forum.id==db.zf_topic.forum_id)).select(
+            db.zf_topic.ALL, db.zf_forum.forum_title,
+            orderby=~db.zf_topic.modifying_date, limitby=(0, 100))
     else:
-        view_info['errors'].append('Search string must be three or more characters')
-    return dict(request=request, search_str=request.vars.search_str, results=results, view_info=view_info)
+        view_info['errors'].append('Search string must be three or more '
+                                   'characters')
+    return dict(request=request, search_str=request.vars.search_str,
+                results=results, view_info=view_info)
 
 @auth_user.requires_login()
 def preferences():
@@ -1164,7 +1196,7 @@ def preferences():
                 if req.new_passwd == req.new_passwd_confirm:
                     hash_passwd = hashlib.sha1(
                         auth_user.get_user_name() + req.new_passwd).hexdigest()
-                    db(db.auth_users.id==auth_email).update(
+                    db(db.auth_users.id==user_id).update(
                         auth_passwd=hash_passwd)
                 else:
                     view_info['errors'].append('Password and confirmation do '

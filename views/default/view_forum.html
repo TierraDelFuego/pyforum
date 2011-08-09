@@ -70,7 +70,7 @@
                                     <br /><span class="small">{{=parse_content(this_topic.content[:view_info['zfsp_topic_teaser_length']], mode='forumpreview')}} ..</span>
                                 {{pass}}
                             </td>
-                            <td class="cell3d center-xy">{{=this_topic.creation_user}}</td>
+                            <td class="cell3d center-xy">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.creation_user_id, 'Anonymous User')}}</td>
                             <td class="cell3d center-xy">{{=topic_replies_info[this_topic.id]}}</td>
                             <td class="cell3d center-xy">{{=this_topic.hits}}</td>
                             <td class="cell3d center-xy">
@@ -79,15 +79,15 @@
                                         {{=this_topic.modifying_date.strftime(str(T('%b %d, %Y - %I:%M %p')))}}
                                     </span>
                                     <br /><span class="small">{{=XML(T('By'))}}</span>
-                                    {{if this_topic.modifying_user == 'Anonymous User':}}
+                                    {{if this_topic.modifying_user_id == 0:}}
                                         <b class="small">{{=XML(T('Anonymous User'))}}</b>
                                     {{else:}}
                                         {{if auth_user.is_auth():}}
-                                            <a href="{{=URL(r=request, c='pm', f='message_new', args=[this_topic.modifying_user])}}"
-                                               title="{{=this_topic.modifying_user}}"
-                                               class="{{if (request.now - this_topic.modifying_date).days == 0:}}"smallb-new"{{else:}}"smallb"{{pass}}">{{=this_topic.modifying_user}}</a>
+                                            <a href="{{=URL(r=request, c='pm', f='message_new', args=[this_topic.modifying_user_id])}}"
+                                               title=""
+                                               class="{{if (request.now - this_topic.modifying_date).days == 0:}}"smallb-new"{{else:}}"smallb"{{pass}}">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.modifying_user_id, 'user_%s' % (this_topic.modifying_user_id))}}</a>
                                         {{else:}}
-                                            <b class="small">{{=this_topic.modifying_user}}</b>
+                                            <b class="small">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.modifying_user_id, 'user_%s' % (this_topic.modifying_user_id))}}</b>
                                         {{pass}}
                                     {{pass}}
                                 </div>

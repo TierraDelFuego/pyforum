@@ -486,15 +486,25 @@ def users():
     view_info = {}
     view_info['errors'] = []
     view_info['users'] = {}
-    list_order = ~db.auth_users.is_enabled|~db.auth_users.auth_created_on
+    list_order = ~db.auth_users.is_enabled | ~db.auth_users.auth_created_on
     all_users = db().select(db.auth_users.ALL, orderby=list_order)
     for this_user in all_users:
-        auth_alias = this_user.auth_alias
-        user_posts = db((db.zf_topic.creation_user==auth_alias) & (db.zf_topic.parent_flag==True)).count()
-        user_replies = db((db.zf_topic.creation_user==auth_alias) & (db.zf_topic.parent_flag==False)).count()
-        sql_roles = db((db.auth_user_role.auth_user_id==this_user.id) & (db.auth_roles.id==db.auth_user_role.auth_role_id)).select(db.auth_roles.auth_role_name)
-        user_roles = ','.join([auth_role_name.auth_role_name for auth_role_name in sql_roles])
-        view_info['users'].update({auth_alias: {'roles': user_roles, 'posts': user_posts, 'replies': user_replies, 'join_date': this_user.auth_created_on}})
+        user_id = this_user.id
+        #auth_email = this_user.auth_email
+        user_posts = db((db.zf_topic.creation_user_id == user_id) &
+            (db.zf_topic.parent_flag==True)).count()
+        user_replies = db((db.zf_topic.creation_user_id == user_id) &
+            (db.zf_topic.parent_flag==False)).count()
+        sql_roles = db((db.auth_user_role.auth_user_id == user_id) &
+            (db.auth_roles.id==db.auth_user_role.auth_role_id)).select(
+            db.auth_roles.auth_role_name)
+        user_roles = ','.join([auth_role_name.auth_role_name \
+                               for auth_role_name in sql_roles])
+        view_info['users'].update(
+            {user_id: {'roles': user_roles,
+                          'posts': user_posts,
+                          'replies': user_replies,
+                          'join_date': this_user.auth_created_on}})
     return dict(request=request, users=all_users, view_info=view_info)
 
 def user_edit():
