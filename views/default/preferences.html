@@ -11,20 +11,27 @@
     </ul>
 {{pass}}
 
+{{if request.vars.upd:}}<p class="note">* {{=XML(T('Preferences have been updated'))}}. *</p>{{pass}}
+
 <form method="post" id="user_edit_form" action="" enctype="multipart/form-data">
     <fieldset id="user_edit_form_fields">
         <input type="hidden" id="form_submitted" name="form_submitted" value="1" />
-        <input type="hidden" id="username" name="username" value="{{=username}}" />
+        <input type="hidden" id="user_id" name="user_id" value="{{=user_id}}" />
 
         <table cellspacing="2" cellpadding="2">
             <tbody>
                 <tr>
-                    <td>{{=XML(T('Username'))}}:</td>
-                    <td><a href="{{=URL(r=request, c='pm', f='message_new', args=[username])}}" title="" class="linkb">{{=username}}</a></td>
+                    <td>{{=XML(T('Email'))}}:</td>
+                    <td><a href="mailto:{{=user_email}}" title="{{=XML(T('Email'))}} {{=user_email}}">{{=user_email}}</a></td>
                 </tr>
                 <tr>
-                    <td>{{=XML(T('Email'))}}:</td>
-                    <td><a href="mailto:{{=user_email}}" title="{{=user_email}}">{{=user_email}}</a></td>
+                    <td>{{=XML(T('Username'))}}:</td>
+                    <td><input type="text" style="width:200px;" class="formelem"
+                               name="username"
+                               id="username"
+                               value="{{=request.vars.get('username', view_info['props']['username'])}}" />
+                    <i class="note">* {{=XML(T('This will display in you postings, search, etc'))}}.</i>
+                    </td>
                 </tr>
                 <tr>
                     <td>{{=XML(T('New Password'))}}:</td>
@@ -93,8 +100,9 @@
                     <td>{{=XML(T('Forum Subscriptions'))}}:</td>
                     <td>
                         {{if len(forum_subscriptions):}}
-                            <select id="remove_forum_subscription" name="remove_forum_subscription" multiple="multiple"
-                                    style="width:500px;height:100px;">
+                            <select id="remove_forum_subscription" name="remove_forum_subscription"
+                            multiple="multiple"
+                            style="width:500px;height:100px;">
                                 {{for f_sub in forum_subscriptions:}}
                                     <option value="{{=f_sub.id}}">{{=f_sub.forum_title}}</option>
                                 {{pass}}
@@ -122,10 +130,12 @@
                 <tr>
                     <td>{{=XML(T('Avatar'))}}:</td>
                     <td>
-                        {{if forumhelper.has_member_avatar(username):}}
-                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[username])}}" alt="" />
+                        {{if forumhelper.has_member_avatar(user_id):}}
+                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[user_id])}}" alt="" />
                             <label for="remove_avatar">{{=XML(T('Disable'))}}:</label>
-                            <input type="checkbox" id="remove_avatar" name="remove_avatar" {{if request.vars.get('remove_avatar', ''):}}checked="checked"{{pass}} />
+                            <input type="checkbox" id="remove_avatar"
+                            name="remove_avatar"
+                            {{if request.vars.get('remove_avatar', ''):}}checked="checked"{{pass}} />
                             <br />
                         {{pass}}
                         <input type="file" id="avatar_data" name="avatar_data" />

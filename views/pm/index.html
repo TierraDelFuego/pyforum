@@ -80,8 +80,8 @@
                                                    title="">{{=msg.subject}}</a>
                                             </td>
                                             <td class="cell3d" style="text-align:center;">
-                                                <a href="{{=URL(r=request, c='pm', f='message_new', args=[msg.from_auth_user])}}"
-                                                   title="">{{=msg.from_auth_user}}</a>
+                                                <a href="{{=URL(r=request, c='pm', f='message_new', args=[msg.from_user_id])}}"
+                                                   title="">{{=forumhelper.get_member_property('zfmp_display_name', msg.from_user_id, 'user_%s' % (msg.from_user_id))}}</a>
                                             </td>
                                             <td class="cell3d" style="text-align:center;">
                                                 {{=msg.creation_date.strftime(str(T('%b %d, %Y - %I:%M %p')))}}

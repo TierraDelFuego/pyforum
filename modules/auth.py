@@ -47,27 +47,24 @@ class CustomAuthentication(object):
         self.db = db
         self._anonymous_user = 'Anonymous User'
         self.environment = environment
-        self.__id = None
         self.__user_id = None
 
     def __call__(self):
-        """ Returns the username """
-        _auth_name = self.session.auth_alias
-        if _auth_name is None:
-            _auth_name = self._anonymous_user
-        return _auth_name
+        """ Returns the username (email) """
+        return self.session.auth_email or self._anonymous_user
 
-    def authenticate(self, auth_alias, auth_passwd):
+    def authenticate(self, auth_email, auth_passwd):
         """ sets authentication for the user """
         auth = False
         self.logout()  # Clear up previous session if any
-        hash_pwd = hashlib.sha1('%s%s' % (auth_alias, auth_passwd)).hexdigest()
-        rows = self.db((self.db.auth_users.auth_alias == auth_alias) &
+        hash_pwd = hashlib.sha1('%s%s' % (auth_email, auth_passwd)).hexdigest()
+        rows = self.db((self.db.auth_users.auth_email == auth_email) &
             (self.db.auth_users.auth_passwd == hash_pwd) &
             (self.db.auth_users.is_enabled == True)).select()
         if rows:
             self.__user_id = rows[0].id
-            self.session.auth_alias = auth_alias
+            # These two next values go into our session
+            self.session.auth_email = auth_email
             self.session.user_id = self.__user_id
             auth = True
         return auth
@@ -101,7 +98,6 @@ class CustomAuthentication(object):
                     self.db.auth_roles.id)[0].id
             auth_user_id = self.db.auth_users.insert(
                 auth_email=email,
-                auth_alias=name,
                 auth_passwd=hash_passwd,
                 auth_created_on=self.request.now,
                 auth_modified_on=self.request.now,
@@ -112,18 +108,18 @@ class CustomAuthentication(object):
                                           auth_role_id=auth_role_id)
             # Read the (new) user's back
             user = self.db(
-                (self.db.auth_users.auth_alias == email) &
+                (self.db.auth_users.auth_email == email) &
                 (self.db.auth_users.is_enabled == True)).select().first()
         user_id = user.id  # Convenience
         self.__user_id = user_id
-        self.__id = user_id
-        self.session.auth_alias = email
+        self.session.auth_email = email
         self.session.user_id = user_id
         return user_id
 
     def logout(self):
         """ Clear the session """
-        self.session.auth_alias = None
+        self.session.auth_email = None
+        self.session.user_id = None
 
     def has_role(self, roles):
         """ Receives a comma-separated string containing the roles to check
@@ -134,7 +130,7 @@ class CustomAuthentication(object):
         roles_to_check = roles.split(',')
         roles_found = []
         if self.is_auth():
-            auth_alias = self.session.auth_alias
+            auth_email = self.session.auth_email
             # select
             #   ar.auth_role_name
             # from
@@ -142,11 +138,11 @@ class CustomAuthentication(object):
             #   auth_user_role as aur,
             #   auth_users as au
             # where
-            #   au.auth_alias = %(auth_alias)s
+            #   au.auth_email = %(auth_email)s
             #   and au.id = aur.auth_user_id
             #   and aur.auth_role_id = ar.id
             user_roles = self.db(
-                (self.db.auth_users.auth_alias == auth_alias) &\
+                (self.db.auth_users.auth_email == auth_email) &\
                 (self.db.auth_users.id == \
                  self.db.auth_user_role.auth_user_id) &\
                 (self.db.auth_user_role.auth_role_id == \
@@ -163,9 +159,9 @@ class CustomAuthentication(object):
         """ Returns a list of roles the user belongs to """
         roles = []
         if self.is_auth():
-            auth_alias = self.get_user_name()
+            auth_email = self.get_user_name()
             user_roles = self.db(
-                (self.db.auth_users.auth_alias == auth_alias) &\
+                (self.db.auth_users.auth_email == auth_email) &\
                 (self.db.auth_users.id == \
                  self.db.auth_user_role.auth_user_id) &\
                 (self.db.auth_user_role.auth_role_id == \
@@ -175,29 +171,30 @@ class CustomAuthentication(object):
                 roles = [each_role.auth_role_name for each_role in user_roles]
         return roles
 
+    def get_user_id(self):
+        """ Returns the ID (Numeric) for the authentcated user, or None (NULL)
+        if the user is not authenticated in the system
+
+        """
+        return self.session.user_id
+
     def get_user_name(self):
-        """ same as __call__ - returns the username (alias) """
-        _auth_name = self.session.auth_alias
-        if _auth_name is None:
-            _auth_name = self._anonymous_user
-        return _auth_name
+        """ same as __call__ - returns the 'username' (email) """
+        return self.session.auth_email or self._anonymous_user
 
     def get_user_email(self):
-        """ If auth, gets the user alias from the database """
-        if self.is_auth():
-            user_email = self.db(
-                self.db.auth_users.auth_alias == self.get_user_name()).select(
-                self.db.auth_users.auth_email)[0].auth_email
-        else:
-            user_email = None
-        return user_email
+        """ Deprecated - for compatibility only, use get_user_name()
+        instead
+        
+        """
+        return self.get_user_name()
 
     def is_auth(self):
         """ True if the user has been authenticated in the system,
         false otherwise
 
         """
-        return self.session.auth_alias is not None
+        return True if self.session.user_id is not None else False
 
     def is_admin(self):
         """ This is a hack-y method (or shortcut) that can become useful in
@@ -206,13 +203,6 @@ class CustomAuthentication(object):
 
         """
         return self.has_role('zAdministrator')
-
-    def get_user_id(self):
-        """ Returns the ID (Numeric) for the authentcated user, or None
-        if the user is not authenticated in the system
-
-        """
-        return self.__id
 
     def requires_login(self):
         """ Decorator Helper to aid in determine whether a controller needs

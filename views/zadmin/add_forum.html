@@ -20,11 +20,11 @@
     <tbody>
         <tr>
             <td><span class="warning">[*]</span> {{=XML(T('Forum Name'))}}:</td>
-            <td><input type="text" id="title" name="title" value="{{=request.get('title', '')}}" style="width:400px;" /></td>
+            <td><input type="text" id="title" name="title" value="{{=request.vars.title or ''}}" style="width:400px;" /></td>
         </tr>
         <tr>
             <td><span class="warning">[*]</span> {{=XML(T('Forum Description'))}}:</td>
-            <td><textarea id="description" name="description" rows="0" cols="0" style="width:400px;height:150px;">{{=request.get('description', '')}}</textarea></td>
+            <td><textarea id="description" name="description" rows="0" cols="0" style="width:400px;height:150px;">{{=request.vars.description or ''}}</textarea></td>
         </tr>
         <tr>
             <td>{{=XML(T('Select Category'))}}:</td>

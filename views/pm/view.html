@@ -19,11 +19,13 @@
     <tbody>
         <tr class="shadedarker">
             <td class="cell3d" style="width:15%;"><b>{{=XML(T('From'))}}:</b></td>
-            <td class="cell3d" style="width:85%;"><a href="{{=URL(r=request, c='pm', f='message_new', args=[msg.from_auth_user])}}" title="">{{=msg.from_auth_user}}</a></td>
+            <td class="cell3d" style="width:85%;">
+                <a href="{{=URL(r=request, c='pm', f='message_new', args=[msg.from_user_id])}}" title="">{{=forumhelper.get_member_property('zfmp_display_name', msg.from_user_id, 'user_%s' % (msg.from_user_id))}}</a>
+            </td>
         </tr>
         <tr class="shadedarker">
             <td class="cell3d" style="width:15%;"><b>{{=XML(T('To'))}}:</b></td>
-            <td class="cell3d" style="width:85%;">{{=msg.auth_user}}</td>
+            <td class="cell3d" style="width:85%;">{{=forumhelper.get_member_property('zfmp_display_name', msg.user_id, 'user_%s' % (msg.user_id))}}</td>
         </tr>
         <tr class="shadedarker">
             <td class="cell3d" style="width:15%;"><b>{{=XML(T('Subject'))}}:</b></td>

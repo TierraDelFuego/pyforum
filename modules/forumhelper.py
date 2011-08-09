@@ -20,9 +20,15 @@ class ForumHelper(object):
         self.auth_user = auth_user
 
     def get_system_property(self, property_name, default_value):
-        """ Checks for a possible system property and returns its associated value
-        if the property exists and its value is empty, it does also return the default value """
-        prop = self.db(self.db.zf_system_properties.property_name==property_name).select(self.db.zf_system_properties.id, self.db.zf_system_properties.property_desc, self.db.zf_system_properties.property_value)
+        """ Checks for a possible system property and returns its
+        associated value if the property exists and its value is empty,
+        it does also return the default value
+        
+        """
+        prop = self.db(self.db.zf_system_properties.property_name == \
+            property_name).select(self.db.zf_system_properties.id,
+                                  self.db.zf_system_properties.property_desc,
+                                  self.db.zf_system_properties.property_value)
         if prop:
             property_value = prop[0].property_value
         else:
@@ -38,135 +44,216 @@ class ForumHelper(object):
         exist, "new value" must always be a string,
         it returns a boolean value describing success in adding the property
         or failure when the prioperty could not be updated """
-        prop = self.db(self.db.zf_system_properties.property_name==property_name).select(self.db.zf_system_properties.id)
+        prop = self.db(self.db.zf_system_properties.property_name == \
+            property_name).select(self.db.zf_system_properties.id)
         if prop:
             prop_id = prop[0].id
-            self.db(self.db.zf_system_properties.id==prop_id).update(property_value=new_value)
+            self.db(self.db.zf_system_properties.id == \
+                    prop_id).update(property_value=new_value)
             updated = True
         else:
             updated = False
         return updated
 
-    def get_member_property(self, property_name, auth_user, default_value):
-        """ Similar to get_system_property() but will handle member properties instead of system properties """
+    def get_member_property(self, property_name, user_id, default_value):
+        """ Similar to get_system_property() but will handle member properties
+        instead of system properties
+        
+        """
         user_property_value = default_value
         # First check if the property exists
-        property_check = self.db(self.db.zf_member_properties_skel.property_name==property_name).select(self.db.zf_member_properties_skel.id)
+        property_check = self.db(
+            self.db.zf_member_properties_skel.property_name == \
+            property_name).select(self.db.zf_member_properties_skel.id)
         if len(property_check):
             property_id = property_check[0].id
             # Now check if the user *has* this property in his profile
-            user_prop = self.db((self.db.zf_member_properties.property_id==property_id) & (self.db.zf_member_properties.auth_user==auth_user)).select(self.db.zf_member_properties.property_value)
+            user_prop = self.db((self.db.zf_member_properties.property_id == \
+                property_id) & (self.db.zf_member_properties.user_id == \
+                user_id)).select(self.db.zf_member_properties.property_value)
             if user_prop:
                 user_property_value = user_prop[0].property_value
         return user_property_value
 
-    def put_member_property(self, property_name, auth_user, new_value):
+    def put_member_property(self, property_name, user_id, new_value):
         errors = {'errors': ''}
         # Check if the property exists
-        property_check = self.db(self.db.zf_member_properties_skel.property_name==property_name).select(self.db.zf_member_properties_skel.id, self.db.zf_member_properties_skel.member_editable)
+        property_check = self.db(
+            self.db.zf_member_properties_skel.property_name == \
+                property_name).select(
+            self.db.zf_member_properties_skel.id,
+            self.db.zf_member_properties_skel.member_editable)
         if len(property_check):
             property_id = property_check[0].id
-            curr_user = self.auth_user.get_user_name()
+            curr_user_id = self.auth_user.get_user_id()
             #member_editable = property_check[0].member_editable
-            if curr_user==auth_user or self.auth_user.is_admin():
+            if curr_user_id == user_id or self.auth_user.is_admin():
                 # Does this property exists for the user?
-                prop_exists = self.db((self.db.zf_member_properties.property_id==property_id) & (self.db.zf_member_properties.auth_user==auth_user)).select(self.db.zf_member_properties.id)
+                prop_exists = self.db(
+                    (self.db.zf_member_properties.property_id == \
+                     property_id) & \
+                    (self.db.zf_member_properties.user_id == \
+                     user_id)).select(self.db.zf_member_properties.id)
                 if len(prop_exists):
                     # Yes, then update
-                    self.db((self.db.zf_member_properties.property_id==property_id) & (self.db.zf_member_properties.auth_user==auth_user)).update(property_value=new_value)
+                    self.db(
+                        (self.db.zf_member_properties.property_id == \
+                        property_id) & \
+                        (self.db.zf_member_properties.user_id == \
+                         user_id)).update(property_value=new_value)
                 else:
                     # Nope, Create
-                    self.db.zf_member_properties.insert(auth_user=auth_user, property_id=property_id, property_value=new_value)
+                    self.db.zf_member_properties.insert(
+                        user_id=user_id,
+                        property_id=property_id, property_value=new_value)
             else:
-                errors.update({'errors': 'Not allowed to change this property'})
+                errors.update({'errors':
+                    'Not allowed to change this property'})
         else:
             errors.update({'errors': 'Member property name not found'})
         return errors
 
-    def has_member_avatar(self, auth_user, bypass=True):
-        """ Tests if there is an avatar stored for the user, if bypass is True, it'll check for the avatar active flag """
+    def has_member_avatar(self, user_id, bypass=True):
+        """ Tests if there is an avatar stored for the user, if bypass is
+        True, it'll check for the avatar active flag
+        
+        """
         if bypass:
             avatar_info = self.db(\
-                    (self.db.zf_member_avatars.auth_user==auth_user) &\
-                    (self.db.zf_member_avatars.avatar_active==True)\
-                ).select(self.db.zf_member_avatars.content_type, self.db.zf_member_avatars.avatar_image)
+                    (self.db.zf_member_avatars.user_id == user_id) &
+                    (self.db.zf_member_avatars.avatar_active == \
+                     True)).select(self.db.zf_member_avatars.content_type,
+                                   self.db.zf_member_avatars.avatar_image)
         else:
-            avatar_info = self.db(self.db.zf_member_avatars.auth_user==self.db.zf_member_avatars.auth_user).select(self.db.zf_member_avatars.content_type, self.db.zf_member_avatars.avatar_image)
+            avatar_info = self.db(self.db.zf_member_avatars.user_id == \
+                self.db.zf_member_avatars.user_id).select(
+                self.db.zf_member_avatars.content_type,
+                self.db.zf_member_avatars.avatar_image)
         if len(avatar_info):
             return True
         else:
             return False
 
-    def has_forum_subscription(self, forum_id, auth_user):
-        """ Returns True if auth_user is subscribed to the requested forum, False otherwise """
-        return self._has_subscription(forum_id, 'F', auth_user)
+    def has_forum_subscription(self, forum_id, user_id):
+        """ Returns True if auth_user is subscribed to the requested forum,
+        False otherwise
+        
+        """
+        return self._has_subscription(forum_id, 'F', user_id)
 
-    def has_topic_subscription(self, topic_id, auth_user):
-        """ Returns True if auth_user is subscribed to the requested topic, False otherwise """
-        return self._has_subscription(topic_id, 'T', auth_user)
+    def has_topic_subscription(self, topic_id, user_id):
+        """ Returns True if auth_user is subscribed to the requested topic,
+        False otherwise
+        
+        """
+        return self._has_subscription(topic_id, 'T', user_id)
 
-    def _has_subscription(self, object_id, object_type, auth_user):
-        """ Returns True if auth_user is subscribed to the requested forum/topic, False otherwise """
+    def _has_subscription(self, object_id, object_type, user_id):
+        """ Returns True if auth_user is subscribed to the requested
+        forum/topic, False otherwise
+        
+        """
         subscribed = False
         #raise ValueError, self.auth_user.is_auth()
-        if auth_user:
+        if user_id:
             if self.db(
-                        (self.db.zf_member_subscriptions.auth_user==auth_user) &
-                        (self.db.zf_member_subscriptions.subscription_type==object_type) &
-                        (self.db.zf_member_subscriptions.subscription_active==True) &
-                        (self.db.zf_member_subscriptions.subscription_id==object_id)
-                        ).select(self.db.zf_member_subscriptions.id):
+                (self.db.zf_member_subscriptions.user_id == user_id) &
+                (self.db.zf_member_subscriptions.subscription_type == \
+                 object_type) &
+                (self.db.zf_member_subscriptions.subscription_active == True) &
+                (self.db.zf_member_subscriptions.subscription_id == \
+                 object_id)).select(self.db.zf_member_subscriptions.id):
                 subscribed = True
         return subscribed
 
-    def add_topic_subscription(self, topic_id, auth_user):
-        return self._handle_subscription(topic_id, 'T', auth_user, 'add')
+    def add_topic_subscription(self, topic_id, user_id):
+        return self._handle_subscription(topic_id, 'T', user_id, 'add')
 
-    def del_topic_subscription(self, topic_id, auth_user):
-        return self._handle_subscription(topic_id, 'T', auth_user, 'remove')
+    def del_topic_subscription(self, topic_id, user_id):
+        return self._handle_subscription(topic_id, 'T', user_id, 'remove')
 
-    def add_forum_subscription(self, forum_id, auth_user):
-        return self._handle_subscription(forum_id, 'F', auth_user, 'add')
+    def add_forum_subscription(self, forum_id, user_id):
+        return self._handle_subscription(forum_id, 'F', user_id, 'add')
 
-    def del_forum_subscription(self, forum_id, auth_user):
-        return self._handle_subscription(forum_id, 'F', auth_user, 'remove')
+    def del_forum_subscription(self, forum_id, user_id):
+        return self._handle_subscription(forum_id, 'F', user_id, 'remove')
 
-    def _handle_subscription(self, object_id, object_type, auth_user, action):
-        """ object_id is a forum_id or a topic_id, object_type is "F" for forum, "T" for topic, action is "add" or "remove" """
+    def _handle_subscription(self, object_id, object_type, user_id, action):
+        """ object_id is a forum_id or a topic_id, object_type is "F" for
+        forum, "T" for topic, action is "add" or "remove"
+        
+        """
         success = True
         # See if the record actually exists
-        user = auth_user #self.auth_user.get_user_name()
-        subscription = self.db((self.db.zf_member_subscriptions.subscription_id==object_id) & (self.db.zf_member_subscriptions.auth_user==user) & (self.db.zf_member_subscriptions.subscription_type==object_type)).select()
+        subscription = self.db(
+            (self.db.zf_member_subscriptions.subscription_id == object_id) & \
+            (self.db.zf_member_subscriptions.user_id == user_id) & \
+            (self.db.zf_member_subscriptions.subscription_type == \
+             object_type)).select()
         if len(subscription):
             # Ok, there is a record, this means that we'll update it rather than add a new one
             if action == "add":
-                self.db((self.db.zf_member_subscriptions.subscription_id==object_id) & (self.db.zf_member_subscriptions.auth_user==user) & (self.db.zf_member_subscriptions.subscription_type==object_type)).update(subscription_active=True)
+                self.db(
+                    (self.db.zf_member_subscriptions.subscription_id == \
+                     object_id) &
+                    (self.db.zf_member_subscriptions.user_id == user_id) &
+                    (self.db.zf_member_subscriptions.subscription_type == \
+                     object_type)).update(subscription_active=True)
             elif action == "remove":
-                self.db((self.db.zf_member_subscriptions.subscription_id==object_id) & (self.db.zf_member_subscriptions.auth_user==user) & (self.db.zf_member_subscriptions.subscription_type==object_type)).update(subscription_active=False)
+                self.db(
+                    (self.db.zf_member_subscriptions.subscription_id == \
+                     object_id) &
+                    (self.db.zf_member_subscriptions.user_id == user_id) &
+                    (self.db.zf_member_subscriptions.subscription_type == \
+                     object_type)).update(subscription_active=False)
             else:
                 success = False
         else:
-            # No record found, add a brand new one, in this case there can be no "remove"
-            self.db.zf_member_subscriptions.insert(auth_user=user, subscription_id=object_id, subscription_type=object_type, subscription_active=True)
+            # No record found, add a brand new one, in this case there
+            # can be no "remove"
+            self.db.zf_member_subscriptions.insert(
+                user_id=user_id,
+                subscription_id=object_id,
+                subscription_type=object_type,
+                subscription_active=True)
         return success
 
-    def get_user_rank(self, auth_user):
+    def get_user_rank(self, user_id):
         """ Returns the rank of the user """
         rank = ''
-        hits = int(self.get_member_property('zfmp_postings', auth_user, 0))
-        rank_info = self.db(self.db.zf_member_rank.rank_value_min <= hits).select(self.db.zf_member_rank.rank_name, orderby=~self.db.zf_member_rank.rank_value_min, limitby=(0,1))
+        hits = int(self.get_member_property('zfmp_postings', user_id, 0))
+        rank_info = self.db(
+            self.db.zf_member_rank.rank_value_min <= hits).select(
+            self.db.zf_member_rank.rank_name,
+            orderby=~self.db.zf_member_rank.rank_value_min, limitby=(0,1))
         #raise ValueError, rank_info
         if len(rank_info):
             rank = rank_info[0].rank_name
         return rank
 
     def get_system_announcements(self, include_content=False):
-        max_sys_announcements = int(self.get_system_property('zfsp_system_announcement_max', 0))
+        max_sys_announcements = int(
+            self.get_system_property('zfsp_system_announcement_max', 0))
         if max_sys_announcements:
             if include_content:
-                sys_topics = self.db((self.db.zf_topic.system_announcement_flag==True) & (self.db.zf_topic.parent_flag==True)).select(self.db.zf_topic.title, self.db.zf_topic.id, self.db.zf_topic.modifying_date, self.db.zf_topic.content, orderby=~self.db.zf_topic.modifying_date, limitby=(0, max_sys_announcements))
+                sys_topics = self.db(
+                    (self.db.zf_topic.system_announcement_flag == True) &
+                    (self.db.zf_topic.parent_flag == True)).select(
+                    self.db.zf_topic.title,
+                    self.db.zf_topic.id,
+                    self.db.zf_topic.modifying_date,
+                    self.db.zf_topic.content,
+                    orderby=~self.db.zf_topic.modifying_date,
+                    limitby=(0, max_sys_announcements))
             else:
-                sys_topics = self.db((self.db.zf_topic.system_announcement_flag==True) & (self.db.zf_topic.parent_flag==True)).select(self.db.zf_topic.title, self.db.zf_topic.id, self.db.zf_topic.modifying_date, orderby=~self.db.zf_topic.modifying_date, limitby=(0, max_sys_announcements))
+                sys_topics = self.db(
+                    (self.db.zf_topic.system_announcement_flag == True) &
+                    (self.db.zf_topic.parent_flag == True)).select(
+                    self.db.zf_topic.title,
+                    self.db.zf_topic.id,
+                    self.db.zf_topic.modifying_date,
+                    orderby=~self.db.zf_topic.modifying_date,
+                    limitby=(0, max_sys_announcements))
             if not len(sys_topics):
                 sys_topics = [{'error':'No Topics'}]
         else:
@@ -174,14 +261,15 @@ class ForumHelper(object):
         return sys_topics
 
     def get_latest_topics(self, include_content=False):
-        max_topics = int(self.get_system_property('zfsp_latest_postings_max', 0))
+        max_topics = int(
+            self.get_system_property('zfsp_latest_postings_max', 0))
         if max_topics:
             if include_content:
                 latest_topics = self.db(\
-                        (self.db.zf_topic.system_announcement_flag==False) &\
-                        (self.db.zf_forum.include_latest_topics==True) &\
-                        (self.db.zf_forum.id==self.db.zf_topic.forum_id) &\
-                        (self.db.zf_topic.parent_flag==True)\
+                        (self.db.zf_topic.system_announcement_flag == False) &
+                        (self.db.zf_forum.include_latest_topics == True) &
+                        (self.db.zf_forum.id == self.db.zf_topic.forum_id) &
+                        (self.db.zf_topic.parent_flag==True) \
                     ).select(self.db.zf_topic.title,
                         self.db.zf_topic.id,
                         self.db.zf_topic.modifying_date,
@@ -190,10 +278,10 @@ class ForumHelper(object):
                         limitby=(0, max_topics))
             else:
                 latest_topics = self.db(\
-                        (self.db.zf_topic.system_announcement_flag==False) &\
-                        (self.db.zf_forum.include_latest_topics==True) &\
-                        (self.db.zf_forum.id==self.db.zf_topic.forum_id) &\
-                        (self.db.zf_topic.parent_flag==True)
+                        (self.db.zf_topic.system_announcement_flag == False) &
+                        (self.db.zf_forum.include_latest_topics == True) &
+                        (self.db.zf_forum.id == self.db.zf_topic.forum_id) &
+                        (self.db.zf_topic.parent_flag == True)
                     ).select(self.db.zf_topic.title,
                         self.db.zf_topic.id,
                         self.db.zf_topic.modifying_date,
@@ -206,14 +294,22 @@ class ForumHelper(object):
         return latest_topics
 
     def setup_notifications(self, subscription_id, subscription_type, now):
-        """ subscription_id is the topic.id or forum.id being updated, subscription_type is 'T' (Topic) or 'F' (Forum) """
+        """ subscription_id is the topic.id or forum.id being updated,
+        subscription_type is 'T' (Topic) or 'F' (Forum)
+        
+        """
         # Grab all users subscribed to this object
-        subscribers = self.db((self.db.zf_member_subscriptions.subscription_active==True) &
-           (self.db.zf_member_subscriptions.subscription_id==subscription_id) &
-           (self.db.zf_member_subscriptions.subscription_type==subscription_type)).select(self.db.zf_member_subscriptions.auth_user)
+        subscribers = self.db(
+            (self.db.zf_member_subscriptions.subscription_active==True) &
+            (self.db.zf_member_subscriptions.subscription_id == \
+             subscription_id) &
+            (self.db.zf_member_subscriptions.subscription_type == \
+             subscription_type)).select(
+            self.db.zf_member_subscriptions.user_id)
         if subscribers:
             for subscriber in subscribers:
-                self.db.zf_member_subscriptions_notification.insert(auth_user=subscriber.auth_user,
+                self.db.zf_member_subscriptions_notification.insert(
+                    user_id=subscriber.user_id,
                     subscription_id=subscription_id,
                     subscription_type=subscription_type,
                     creation_date=now,
@@ -226,7 +322,9 @@ class ForumHelper(object):
         return self.db(self.db.zf_admin_messages.read_flag==False).count()
 
     def get_my_messages_cnt(self):
-        msg_count = self.db((self.db.zf_pm.auth_user==self.auth_user.get_user_name()) & (self.db.zf_pm.read_flag==False)).count()
+        msg_count = self.db(
+            (self.db.zf_pm.user_id == self.auth_user.get_user_id()) &
+            (self.db.zf_pm.read_flag==False)).count()
         if msg_count > 0:
             rval = '<b style="color:red;">(%s)</b>' % (msg_count)
         else:
