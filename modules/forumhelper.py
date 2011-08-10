@@ -244,9 +244,10 @@ class ForumHelper(object):
             rank = rank_info[0].rank_name
         return rank
 
-    def get_system_announcements(self, include_content=False):
+    def get_system_announcements(self, include_content=False, rss=False):
         max_sys_announcements = int(
             self.get_system_property('zfsp_system_announcement_max', 0))
+        sys_topics = None
         if max_sys_announcements:
             if include_content:
                 sys_topics = self.db(
@@ -267,15 +268,17 @@ class ForumHelper(object):
                     self.db.zf_topic.modifying_date,
                     orderby=~self.db.zf_topic.modifying_date,
                     limitby=(0, max_sys_announcements))
-            if not len(sys_topics):
+            if not len(sys_topics) and not rss:
                 sys_topics = [{'error':'No Topics'}]
         else:
-            sys_topics = [{'error':'No Topics'}]
+            if not rss:
+                sys_topics = [{'error':'No Topics'}]
         return sys_topics
 
-    def get_latest_topics(self, include_content=False):
+    def get_latest_topics(self, include_content=False, rss=False):
         max_topics = int(
             self.get_system_property('zfsp_latest_postings_max', 0))
+        latest_topics = None
         if max_topics:
             if include_content:
                 latest_topics = self.db(\
@@ -300,10 +303,11 @@ class ForumHelper(object):
                         self.db.zf_topic.modifying_date,
                         orderby=~self.db.zf_topic.modifying_date,
                         limitby=(0, max_topics))
-            if not len(latest_topics):
+            if not len(latest_topics) and not rss:
                 latest_topics = [{'error':'No Topics'}]
         else:
-            latest_topics = [{'error':'No Topics'}]
+            if not rss:
+                latest_topics = [{'error':'No Topics'}]
         return latest_topics
 
     def setup_notifications(self, subscription_id, subscription_type, now):

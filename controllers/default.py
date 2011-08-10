@@ -141,8 +141,9 @@ def index():
                         #    zft.modifying_date desc
                         #limit 1
                         #offset 0
-                        where_statement = (db.zf_topic.forum_id==forum_id) & \
-                        (db.zf_topic.disabled_flag==0)
+                        where_statement = (
+                            db.zf_topic.forum_id == forum_id) & (
+                            db.zf_topic.disabled_flag == 0)
                         last_update_info = db(
                             where_statement).select(
                             db.zf_topic.modifying_user_id,
@@ -495,6 +496,9 @@ def signup():
     req = request.vars
     view_info = {}
     view_info['errors'] = []
+    captcha = forumhelper.gen_pwd()
+    view_info['anon_captcha'] = captcha
+    view_info['anon_captcha_base64'] = base64.standard_b64encode(captcha)
     allow_registration = forumhelper.get_system_property(
         'zfsp_allow_registration', '') != ''
     view_info.update({'allow_registration': allow_registration})
@@ -502,8 +506,7 @@ def signup():
         if req.register_b:
 
             # Verify required fields
-            if len(req.auth_alias) > 0 and len(req.auth_email) > 0 and len(
-                req.auth_passwd) > 0:
+            if len(req.auth_email) > 0 and len(req.auth_passwd) > 0:
                 auth_email = req.auth_email.strip()
                 auth_passwd = req.auth_passwd
                 auth_passwd_c = req.auth_passwd_c
@@ -519,9 +522,12 @@ def signup():
                 # See if this name has been taken
                 if db(db.auth_users.auth_email.lower() == \
                       auth_email.lower()).select(db.auth_users.id):
-                    view_info['errors'].append('The selected email is'
+                    view_info['errors'].append('The selected email is '
                                                'unavailable, please choose '
                                                'another one')
+                if base64.standard_b64encode(req.captcha_response) != req.c:
+                    view_info['errors'].append('Invalid humanity challenge '
+                                               'response, please try again')
 
                 if not view_info['errors']:
                     # Authenticate user
@@ -986,28 +992,35 @@ def rss():
     if rss_type == 'system':
         title = str(XML(T('pyForum Latest System Topics')))
         descr = str(XML(T('pyForum Latest System Topics')))
-        rss_topics = forumhelper.get_system_announcements(include_content=True)
+        rss_topics = forumhelper.get_system_announcements(include_content=True,
+                                                          rss=True)
     else:
         title = str(XML(T('pyForum Latest Topics')))
         descr = str(XML(T('pyForum Latest Topics')))
-        rss_topics = forumhelper.get_latest_topics(include_content=True)
+        rss_topics = forumhelper.get_latest_topics(include_content=True,
+                                                   rss=True)
 
-    rss_feed = rss2.RSS2(title = title,
-                    link = URL(r=request, c='default', f='index'),
-                    description = descr,
-                    lastBuildDate = request.now,
-                    items = [
-                        rss2.RSSItem(
-                            title = topic.title,
-                            link = URL(r=request, c='default', f='view_topic',
-                                       args=[topic.id]),
-                            description = parse_content(topic.content,
-                                                        'forumfull'),
-                            pubDate = topic.modifying_date) \
-                        for topic in rss_topics]
-                    )
-    response.headers['Content-Type'] = 'application/rss+xml'
-    return rss2.dumps(rss_feed)
+    if rss_topics:
+        rss_feed = rss2.RSS2(title = title,
+                        link = URL(r=request, c='default', f='index'),
+                        description = descr,
+                        lastBuildDate = request.now,
+                        items = [
+                            rss2.RSSItem(
+                                title = topic.title,
+                                link = URL(r=request, c='default', f='view_topic',
+                                           args=[topic.id]),
+                                description = parse_content(topic.content,
+                                                            'forumfull'),
+                                pubDate = topic.modifying_date) \
+                            for topic in rss_topics]
+                        )
+        response.headers['Content-Type'] = 'application/rss+xml'
+        return rss2.dumps(rss_feed)
+    else:
+        redirect(URL(r=request, c='default', f='index', vars=dict(rss_msg='No '
+                                                                  'RSS Feed '
+                                                                  'Found')))
 
 def contact_admin():
     """ Contact Admin - This can allow anonymous users to post spam, so

@@ -70,7 +70,7 @@
                                             {{if auth_user.is_auth():}}
                                                 <a href="{{=URL(r=request, c='pm', f='message_new', args=[forum['last_updated_by']])}}"
                                                    class="{{if forum['update_flag']:}}smallb-new{{else:}}smallb{{pass}}"
-                                                   title="{{=forum['last_updated_by']}}">{{=forum['last_updated_by']}}</a>
+                                                   title="">{{=forumhelper.get_display_name(forum['last_updated_by'])}}</a>
                                             {{else:}}
                                                 <b class="small">{{=forum['last_updated_by']}}</b>
                                             {{pass}}

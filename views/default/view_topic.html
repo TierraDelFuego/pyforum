@@ -73,23 +73,23 @@
                     <td class="cell3d" style="width:15%;">
                         <div class="topic-information">
                             {{=XML(T('By'))}}:
-                            {{if topic.creation_user == 'Anonymous User':}}
+                            {{if not topic.creation_user_id:}}
                                 <b class="small">Anonymous User</b>
                             {{else:}}
                                 {{if auth_user.is_auth():}}
-                                    <a href="{{=URL(r=request, c='pm', f='message_new', args=[topic.creation_user])}}"
+                                    <a href="{{=URL(r=request, c='pm', f='message_new', args=[topic.creation_user_id])}}"
                                        title=""
-                                       class="smallb">{{=topic.creation_user}}</a>
+                                       class="smallb">{{=forumhelper.get_display_name(topic.creation_user_id)}}</a>
                                 {{else:}}
-                                    <b>{{=topic.creation_user}}</b>
+                                    <b>{{=forumhelper.get_display_name(topic.creation_user_id)}}</b>
                                 {{pass}}
                                 {{if forumhelper.get_system_property('zfsp_use_ranking_system', '') != '':}}
-                                    <br />{{=XML(T('Rank'))}}: {{=forumhelper.get_user_rank(topic.creation_user)}}
+                                    <br />{{=XML(T('Rank'))}}: {{=forumhelper.get_user_rank(topic.creation_user_id)}}
                                 {{pass}}
-                                <br />{{=XML(T('Postings'))}}: {{=forumhelper.get_member_property('zfmp_postings', topic.creation_user, '0')}}
-                                <br />{{=XML(T('From'))}}: {{=forumhelper.get_member_property('zfmp_country', topic.creation_user, XML(T('<i>Unknown</i>')))}}
-                                {{if forumhelper.get_system_property('zfsp_allow_member_avatars', '') != '' and forumhelper.has_member_avatar(topic.creation_user):}}
-                                    <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[topic.creation_user])}}" alt="" />
+                                <br />{{=XML(T('Postings'))}}: {{=forumhelper.get_member_property('zfmp_postings', topic.creation_user_id, '0')}}
+                                <br />{{=XML(T('From'))}}: {{=forumhelper.get_member_property('zfmp_country', topic.creation_user_id, XML(T('<i>Unknown</i>')))}}
+                                {{if forumhelper.get_system_property('zfsp_allow_member_avatars', '') != '' and forumhelper.has_member_avatar(topic.creation_user_id):}}
+                                    <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[topic.creation_user_id])}}" alt="" />
                                 {{pass}}
                             {{pass}}
                         </div>
@@ -107,7 +107,7 @@
                             {{if (security_info['can_reply'] and not topic.locked_flag) or auth_user.is_admin():}}
                                 <a href="#add_comment"
                                    title=""
-                                   onclick="reply_quote('{{=topic.creation_user}}', 'topic_id_{{=topic.id}}');">{{=XML(T('Reply w/Quote'))}}</a> |
+                                   onclick="reply_quote('{{=forumhelper.get_display_name(topic.creation_user_id)}}', 'topic_id_{{=topic.id}}');">{{=XML(T('Reply w/Quote'))}}</a> |
                             {{pass}}
                             <a href="{{=URL(r=request, c='default', f='report_inappropriate', args=[topic.id, topic.id])}}"
                                onclick="return confirm(document.getElementById('confirm_inapp').value);"
@@ -133,22 +133,22 @@
                             <td class="cell3d" style="width:15%;">
                                 <div class="topic-information">
                                     {{=XML(T('By'))}}:
-                                    {{if this_child.creation_user == 'Anonymous User':}}
+                                    {{if not this_child.creation_user_id:}}
                                         <b class="small">Anonymous User</b>
                                     {{else:}}
                                         {{if auth_user.is_auth():}}
-                                            <a href="{{=URL(r=request, c='pm', f='message_new', args=[this_child.creation_user])}}"
-                                               title="">{{=this_child.creation_user}}</a>
+                                            <a href="{{=URL(r=request, c='pm', f='message_new', args=[this_child.creation_user_id])}}"
+                                               title="">{{=forumhelper.get_display_name(this_child.creation_user_id)}}</a>
                                         {{else:}}
-                                            <b>{{=this_child.creation_user}}</b>
+                                            <b>{{=forumhelper.get_display_name(this_child.creation_user_id)}}</b>
                                         {{pass}}
                                         {{if forumhelper.get_system_property('zfsp_use_ranking_system', '') != '':}}
-                                            <br />{{=XML(T('Rank'))}}: {{=forumhelper.get_user_rank(this_child.creation_user)}}
+                                            <br />{{=XML(T('Rank'))}}: {{=forumhelper.get_user_rank(this_child.creation_user_id)}}
                                         {{pass}}
-                                        <br />{{=XML(T('Postings'))}}: {{=forumhelper.get_member_property('zfmp_postings', this_child.creation_user, '0')}}
-                                        <br />{{=XML(T('From'))}}: {{=forumhelper.get_member_property('zfmp_country', this_child.creation_user, XML(T('<i>Unknown</i>')))}}
-                                        {{if forumhelper.get_system_property('zfsp_allow_member_avatars', '') != '' and forumhelper.has_member_avatar(this_child.creation_user):}}
-                                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[this_child.creation_user])}}" alt="" />
+                                        <br />{{=XML(T('Postings'))}}: {{=forumhelper.get_member_property('zfmp_postings', this_child.creation_user_id, '0')}}
+                                        <br />{{=XML(T('From'))}}: {{=forumhelper.get_member_property('zfmp_country', this_child.creation_user_id, XML(T('<i>Unknown</i>')))}}
+                                        {{if forumhelper.get_system_property('zfsp_allow_member_avatars', '') != '' and forumhelper.has_member_avatar(this_child.creation_user_id):}}
+                                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[this_child.creation_user_id])}}" alt="" />
                                         {{pass}}
                                     {{pass}}
                                 </div>
@@ -165,7 +165,7 @@
                                     {{if (security_info['can_reply'] and not topic.locked_flag) or auth_user.is_admin():}}
                                         <a href="#add_comment"
                                            title=""
-                                           onclick="reply_quote('{{=this_child.creation_user}}', 'topic_id_{{=this_child.id}}');">{{=XML(T('Reply w/Quote'))}}</a> |
+                                           onclick="reply_quote('{{=forumhelper.get_display_name(this_child.creation_user_id)}}', 'topic_id_{{=this_child.id}}');">{{=XML(T('Reply w/Quote'))}}</a> |
                                     {{pass}}
                                     <a href="{{=URL(r=request, c='default', f='report_inappropriate', args=[this_child.id, topic.id])}}"
                                        onclick="return confirm(document.getElementById('confirm_inapp').value);"

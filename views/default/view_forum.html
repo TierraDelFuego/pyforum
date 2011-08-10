@@ -85,7 +85,7 @@
                                         {{if auth_user.is_auth():}}
                                             <a href="{{=URL(r=request, c='pm', f='message_new', args=[this_topic.modifying_user_id])}}"
                                                title=""
-                                               class="{{if (request.now - this_topic.modifying_date).days == 0:}}"smallb-new"{{else:}}"smallb"{{pass}}">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.modifying_user_id, 'user_%s' % (this_topic.modifying_user_id))}}</a>
+                                               class="{{if (request.now - this_topic.modifying_date).days == 0:}}smallb-new{{else:}}smallb{{pass}}">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.modifying_user_id, 'user_%s' % (this_topic.modifying_user_id))}}</a>
                                         {{else:}}
                                             <b class="small">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.modifying_user_id, 'user_%s' % (this_topic.modifying_user_id))}}</b>
                                         {{pass}}

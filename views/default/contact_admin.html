@@ -19,7 +19,7 @@
         <tbody>
             <tr>
                 <td>{{=XML(T('From'))}}:</td>
-                <td>{{=auth_user.get_user_name()}}
+                <td>{{=forumhelper.get_display_name()}}
                     {{if not auth_user.is_auth():}}<span class="warning">({{=XML(T('Please make sure you leave your contact information in case you need a response'))}}.)</span>{{pass}}
                 </td>
             <tr>
