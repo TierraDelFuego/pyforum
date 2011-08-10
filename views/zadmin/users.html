@@ -8,13 +8,14 @@
 
     <p>{{=XML(T('To sort this table click on any of the column headers'))}}.</p>
     <p>{{=XML(T('Note: Disabled Members will appear in a darker shade of gray'))}}.</p>
-    
+
     <table cellspacing="0" cellpadding="0" class="zf-table max-width sortable">
         <thead>
             <tr class="shadedarker">
                 <th class="cell3d">ID</th>
                 <th class="cell3d">{{=XML(T('Username'))}}</th>
                 <th class="cell3d">{{=XML(T('Email'))}}</th>
+                <th class="cell3d">{{=XML(T('PM'))}}</th>
                 <th class="cell3d">{{=XML(T('Roles'))}}</th>
                 <th class="cell3d">{{=XML(T('Posts'))}}</th>
                 <th class="cell3d">{{=XML(T('Replies'))}}</th>
@@ -27,6 +28,7 @@
                     <td class="cell3d center-xy">{{=idx + 1}}</td>
                     <td class="cell3d center-xy"><a href="{{=URL(r=request, c='zadmin', f='user_edit', args=[user.id])}}" title="{{=XML(T('Edit User'))}}" class="linkb">{{=forumhelper.get_member_property('zfmp_display_name', user.id, 'user_%s' % (user.id))}}</a></td>
                     <td class="cell3d center-xy"><a href="mailto:{{=user.auth_email}}" title="{{=user.auth_email}}">{{=user.auth_email}}</a></td>
+                    <td class="cell3d center-xy"><a href="{{=URL(r=request, c='pm', f='message_new', args=[user.id])}}" title="">Send PM</a></td>
                     <td class="cell3d center-xy">{{=view_info['users'][user.id]['roles']}}</a></td>
                     <td class="cell3d center-xy">{{=view_info['users'][user.id]['posts']}}</td>
                     <td class="cell3d center-xy">{{=view_info['users'][user.id]['replies']}}</td>
@@ -56,19 +58,19 @@ sorttable = {
     arguments.callee.done = true;
     // kill the timer
     if (_timer) clearInterval(_timer);
-    
+
     if (!document.createElement || !document.getElementsByTagName) return;
-    
+
     sorttable.DATE_RE = /^(\d\d?)[\/\.-](\d\d?)[\/\.-]((\d\d)?\d\d)$/;
-    
+
     forEach(document.getElementsByTagName('table'), function(table) {
       if (table.className.search(/\bsortable\b/) != -1) {
         sorttable.makeSortable(table);
       }
     });
-    
+
   },
-  
+
   makeSortable: function(table) {
     if (table.getElementsByTagName('thead').length == 0) {
       // table doesn't have a tHead. Since it should have, create one and
@@ -79,9 +81,9 @@ sorttable = {
     }
     // Safari doesn't support table.tHead, sigh
     if (table.tHead == null) table.tHead = table.getElementsByTagName('thead')[0];
-    
+
     if (table.tHead.rows.length != 1) return; // can't cope with two header rows
-    
+
     // Sorttable v1 put rows with a class of "sortbottom" at the bottom (as
     // "total" rows, for example). This is B&R, since what you're supposed
     // to do is put them in a tfoot. So, if there are sortbottom rows,
@@ -103,7 +105,7 @@ sorttable = {
       }
       delete sortbottomrows;
     }
-    
+
     // work through each column and calculate its type
     headrow = table.tHead.rows[0].cells;
     for (var i=0; i<headrow.length; i++) {
@@ -122,7 +124,7 @@ sorttable = {
 	      dean_addEvent(headrow[i],"click", function(e) {
 
           if (this.className.search(/\bsorttable_sorted\b/) != -1) {
-            // if we're already sorted by this column, just 
+            // if we're already sorted by this column, just
             // reverse the table, which is quicker
             sorttable.reverse(this.sorttable_tbody);
             this.className = this.className.replace('sorttable_sorted',
@@ -135,7 +137,7 @@ sorttable = {
             return;
           }
           if (this.className.search(/\bsorttable_sorted_reverse\b/) != -1) {
-            // if we're already sorted by this column in reverse, just 
+            // if we're already sorted by this column in reverse, just
             // re-reverse the table, which is quicker
             sorttable.reverse(this.sorttable_tbody);
             this.className = this.className.replace('sorttable_sorted_reverse',
@@ -147,7 +149,7 @@ sorttable = {
             this.appendChild(sortfwdind);
             return;
           }
-          
+
           // remove sorttable_sorted classes
           theadrow = this.parentNode;
           forEach(theadrow.childNodes, function(cell) {
@@ -160,7 +162,7 @@ sorttable = {
           if (sortfwdind) { sortfwdind.parentNode.removeChild(sortfwdind); }
           sortrevind = document.getElementById('sorttable_sortrevind');
           if (sortrevind) { sortrevind.parentNode.removeChild(sortrevind); }
-          
+
           this.className += ' sorttable_sorted';
           sortfwdind = document.createElement('span');
           sortfwdind.id = "sorttable_sortfwdind";
@@ -181,18 +183,18 @@ sorttable = {
 	        //sorttable.shaker_sort(row_array, this.sorttable_sortfunction);
 	        /* and comment out this one */
 	        row_array.sort(this.sorttable_sortfunction);
-	        
+
 	        tb = this.sorttable_tbody;
 	        for (var j=0; j<row_array.length; j++) {
 	          tb.appendChild(row_array[j][1]);
 	        }
-	        
+
 	        delete row_array;
 	      });
 	    }
     }
   },
-  
+
   guessType: function(table, column) {
     // guess the type of a column based on its first non-blank row
     sortfn = sorttable.sort_alpha;
@@ -202,7 +204,7 @@ sorttable = {
         if (text.match(/^-?[£$¤]?[\d,.]+%?$/)) {
           return sorttable.sort_numeric;
         }
-        // check for a date: dd/mm/yyyy or dd/mm/yy 
+        // check for a date: dd/mm/yyyy or dd/mm/yy
         // can have / or . or - as separator
         // can be mm/dd as well
         possdate = text.match(sorttable.DATE_RE)
@@ -225,17 +227,17 @@ sorttable = {
     }
     return sortfn;
   },
-  
+
   getInnerText: function(node) {
     // gets the text we want to use for sorting for a cell.
     // strips leading and trailing whitespace.
     // this is *not* a generic getInnerText function; it's special to sorttable.
     // for example, you can override the cell text with a customkey attribute.
     // it also gets .value for <input> fields.
-    
+
     hasInputs = (typeof node.getElementsByTagName == 'function') &&
                  node.getElementsByTagName('input').length;
-    
+
     if (node.getAttribute("sorttable_customkey") != null) {
       return node.getAttribute("sorttable_customkey");
     }
@@ -270,7 +272,7 @@ sorttable = {
       }
     }
   },
-  
+
   reverse: function(tbody) {
     // reverse the rows in a tbody
     newrows = [];
@@ -282,14 +284,14 @@ sorttable = {
     }
     delete newrows;
   },
-  
+
   /* sort functions
      each sort function takes two parameters, a and b
      you are comparing a[0] and b[0] */
   sort_numeric: function(a,b) {
     aa = parseFloat(a[0].replace(/[^0-9.-]/g,''));
     if (isNaN(aa)) aa = 0;
-    bb = parseFloat(b[0].replace(/[^0-9.-]/g,'')); 
+    bb = parseFloat(b[0].replace(/[^0-9.-]/g,''));
     if (isNaN(bb)) bb = 0;
     return aa-bb;
   },
@@ -328,7 +330,7 @@ sorttable = {
     if (dt1<dt2) return -1;
     return 1;
   },
-  
+
   shaker_sort: function(list, comp_func) {
     // A stable sort function to allow multi-level sorting of data
     // see: http://en.wikipedia.org/wiki/Cocktail_sort
@@ -358,7 +360,7 @@ sorttable = {
         b++;
 
     } // while(swap)
-  }  
+  }
 }
 
 /* ******************************************************************

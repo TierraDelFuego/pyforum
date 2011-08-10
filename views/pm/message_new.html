@@ -22,12 +22,13 @@
             <tbody>
                 <tr class="shadedarker">
                     <td class="cell3d" style="width:15%;"><b>{{=XML(T('From'))}}:</b></td>
-                    <td class="cell3d" style="width:85%;">{{=auth_user.get_user_name()}}</td>
+                    <td class="cell3d" style="width:85%;">{{=forumhelper.get_display_name(auth_user.get_user_id())}}</td>
                 </tr>
                 <tr class="shadedarker">
                     <td class="cell3d" style="width:15%;"><b>{{=XML(T('To'))}}:</b></td>
                     <td class="cell3d" style="width:85%;">
-                        <input type="text" id="mto" name="mto" value="{{=request.vars.get('mto', mto)}}" style="width:400px;" />
+                        {{=forumhelper.get_display_name(request.vars.get('mto', mto))}}
+                        <input type="hidden" id="mto" name="mto" value="{{=request.vars.get('mto', mto)}}" />
                     </td>
                 </tr>
                 <tr class="shadedarker">
@@ -57,5 +58,9 @@
         </table>
     </fieldset>
 </form>
-    
 
+<script type="text/javascript">
+<!--
+document.getElementById('subject').focus();
+//-->
+</script>

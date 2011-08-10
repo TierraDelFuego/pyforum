@@ -23,7 +23,7 @@ class ForumHelper(object):
         """ Checks for a possible system property and returns its
         associated value if the property exists and its value is empty,
         it does also return the default value
-        
+
         """
         prop = self.db(self.db.zf_system_properties.property_name == \
             property_name).select(self.db.zf_system_properties.id,
@@ -58,7 +58,7 @@ class ForumHelper(object):
     def get_member_property(self, property_name, user_id, default_value):
         """ Similar to get_system_property() but will handle member properties
         instead of system properties
-        
+
         """
         user_property_value = default_value
         # First check if the property exists
@@ -74,6 +74,19 @@ class ForumHelper(object):
             if user_prop:
                 user_property_value = user_prop[0].property_value
         return user_property_value
+
+    def get_display_name(self, user_id=None, default=None):
+        """ This method is a shortcut for calling get_member_property()
+        with the apporpriate parameter. It will return the user's "forum"
+        name, which can be anything the user chooses in his/her profile
+
+        """
+        if user_id is None:
+            user_id = self.auth_user.get_user_id()
+
+        if default is None:
+            default = 'user_%s' % (user_id) # Kind of a convention only
+        return self.get_member_property('zfmp_display_name', user_id, default)
 
     def put_member_property(self, property_name, user_id, new_value):
         errors = {'errors': ''}
@@ -116,7 +129,7 @@ class ForumHelper(object):
     def has_member_avatar(self, user_id, bypass=True):
         """ Tests if there is an avatar stored for the user, if bypass is
         True, it'll check for the avatar active flag
-        
+
         """
         if bypass:
             avatar_info = self.db(\
@@ -137,21 +150,21 @@ class ForumHelper(object):
     def has_forum_subscription(self, forum_id, user_id):
         """ Returns True if auth_user is subscribed to the requested forum,
         False otherwise
-        
+
         """
         return self._has_subscription(forum_id, 'F', user_id)
 
     def has_topic_subscription(self, topic_id, user_id):
         """ Returns True if auth_user is subscribed to the requested topic,
         False otherwise
-        
+
         """
         return self._has_subscription(topic_id, 'T', user_id)
 
     def _has_subscription(self, object_id, object_type, user_id):
         """ Returns True if auth_user is subscribed to the requested
         forum/topic, False otherwise
-        
+
         """
         subscribed = False
         #raise ValueError, self.auth_user.is_auth()
@@ -181,7 +194,7 @@ class ForumHelper(object):
     def _handle_subscription(self, object_id, object_type, user_id, action):
         """ object_id is a forum_id or a topic_id, object_type is "F" for
         forum, "T" for topic, action is "add" or "remove"
-        
+
         """
         success = True
         # See if the record actually exists
@@ -296,7 +309,7 @@ class ForumHelper(object):
     def setup_notifications(self, subscription_id, subscription_type, now):
         """ subscription_id is the topic.id or forum.id being updated,
         subscription_type is 'T' (Topic) or 'F' (Forum)
-        
+
         """
         # Grab all users subscribed to this object
         subscribers = self.db(
@@ -337,7 +350,7 @@ class ForumHelper(object):
         height = -1
         width = -1
         content_type = ''
-                                                                                                                               
+
         # handle GIFs
         if (size >= 10) and data[:6] in ('GIF87a', 'GIF89a'):
             # Check to see if content_type is correct
@@ -345,7 +358,7 @@ class ForumHelper(object):
             w, h = struct.unpack("<HH", data[6:10])
             width = int(w)
             height = int(h)
-                                                                                                                               
+
         # See PNG v1.2 spec (http://www.cdrom.com/pub/png/spec/)
         # Bytes 0-7 are below, 4-byte chunk length, then 'IHDR'
         # and finally the 4-byte width, height
@@ -354,7 +367,7 @@ class ForumHelper(object):
             w, h = struct.unpack(">LL", data[16:24])
             width = int(w)
             height = int(h)
-                                                                                                                               
+
         # Maybe this is for an older PNG version.
         elif (size >= 16) and (data[:8] == '\211PNG\r\n\032\n'):
             # Check to see if we have the right content type
@@ -385,7 +398,7 @@ class ForumHelper(object):
                 height = int(h)
             except:
                 pass
-                                                                                                                               
+
         return content_type, width, height
 
     def emailpwd(self, req_email):
@@ -402,9 +415,9 @@ class ForumHelper(object):
                 sender = [admin_email]
                 recipients = [req_email]
                 message = """You have requested a password reset from %s.
-                
+
                 Your new password is: %s
-    
+
                 pyForum Team""" % (URL(r=self.request, c='default', f='index'), new_user_pwd)
                 session = smtplib.SMTP(mailserver)
                 if username and passwd:
@@ -442,13 +455,13 @@ class ForumHelper(object):
             if random.choice([1,0]):
                 vowel = vowel.upper()
             password = password + vowel
-      
+
         return password
-        
+
     def pagination_widget(self, total, start, href, ptype='forum'):
         """ A Pagination Widget """
 
-        # total = total number of results 
+        # total = total number of results
         # start = zero-based index of first result to be displayed (e.g. page 3 of 5 10-batch pages starts with 20)
         # href  = url + necessary querystring for your results
 
@@ -461,7 +474,7 @@ class ForumHelper(object):
             batch = 50
         else:
             batch = 15
-    
+
         # current page number. add first to prevent zero division errors.
         current = (start + batch) / batch
 
@@ -491,13 +504,13 @@ class ForumHelper(object):
 
         if real_sets_to_display > 1:
             html_code = '<div class="breadcrumbs" style="text-align:center;"> <span i18n:translate="">Pages</span>:\n'
-      
+
             if start >= (batch * PAGE_SET):
                 html_code += '[<a class="breadcrumbs" href="%s?start=%s">Previous %s</a>]&nbsp;' % (href, start - (batch * PAGE_SET), PAGE_SET)
 
             if start - batch >= 0:
                 html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Previous</a>]&nbsp;' % (href, start - batch)
-     
+
             # Need to find the right "range", for example on a 10-page set of 3-results-per-page for 44 total results,
             # If I click page 6, the range must be 1 2 3 4 5 6 7 8 9 10
             # If I am on page 11, then click on 15, the range must be 11 12 13 14 15 16 17 18 19 20
@@ -512,7 +525,7 @@ class ForumHelper(object):
                 end_number = start_number + PAGE_SET
 
             page = start_number * batch
-        
+
             this_range = range(1 + start_number, end_number + 1)
 
             for idx in this_range:
@@ -521,18 +534,18 @@ class ForumHelper(object):
                 else:
                     if idx * batch - batch < total:
                         html_code += '<a class="breadcrumbs" href="%s?start=%s" title="">%s</a>&nbsp;' % (href, page, idx)
-          
+
                 page += batch
 
             if start + batch < total:
                 html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Next</a>]&nbsp;' % (href, start + batch)
 
             if start + (batch * PAGE_SET) < total:
-                tot = start + (batch * PAGE_SET) 
+                tot = start + (batch * PAGE_SET)
                 html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Next %s</a>]&nbsp;' % (href, tot, PAGE_SET)
 
             html_code += '</div>\n'
         else:
             html_code = ''
-        
+
         return html_code

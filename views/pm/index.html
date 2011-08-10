@@ -13,10 +13,10 @@
 
 <form id="pm_form" method="post" action="">
     <fieldset id="pm_form_fields">
-    
+
         <input type="hidden" id="empty_b_msg" name="empty_b_msg" value="{{=XML(T('Please confirm you wish to permanently remove the messages from the trash'))}}" />
         <input type="hidden" id="form_submitted" name="form_submitted" value="1" />
-    
+
         <div class="subnav">
             Move Selected Messages To:
             <select id="moveto" name="moveto">
@@ -27,7 +27,7 @@
             </select>
             <input type="submit" id="move_b" name="move_b" value="{{=XML(T('Move'))}}" />
             <input type="submit" id="empty_b" name="empty_b" value="{{=XML(T('Empty Trash'))}}" onclick="return confirm(document.getElementById('empty_b_msg').value);" />
-            <input type="submit" id="new_b" name="new_b" value="{{=XML(T('New Message'))}}" />
+            <!-- <input type="submit" id="new_b" name="new_b" value="{{=XML(T('New Message'))}}" /> //-->
         </div>
 
         <table cellspacing="0" cellpadding="0" style="width:100%;" class="zf-table">
@@ -93,13 +93,12 @@
                                         <td class="cell3d" colspan="4"><i>{{=XML(T('No messages found'))}}.</i></td>
                                     </tr>
                                 {{pass}}
-                            </tbody>                    
+                            </tbody>
                         </table>
                     </td>
                 </tr>
             </tbody>
         </table>
-        
+
     </fieldset>
 </form>
-

@@ -5,7 +5,7 @@
     <div class="panel-sidebar-content">
         <div>&middot;&nbsp;<a href="{{=URL(r=request, c='default', f='index')}}" title="{{=XML(T('Forum Home'))}}">{{=XML(T('Forum Home'))}}</a></div>
         {{if auth_user.is_auth():}}
-            <div>&middot;&nbsp;<a href="{{=URL(r=request, c='default', f='logout')}}" title="{{=XML(T('Logout'))}}">{{=XML(T('Logout'))}} {{=auth_user.get_user_name()}}</a></div>
+            <div>&middot;&nbsp;<a href="{{=URL(r=request, c='default', f='logout')}}" title="{{=XML(T('Logout'))}}">{{=XML(T('Logout'))}} {{=forumhelper.get_display_name()}}</a></div>
             <div>&middot;&nbsp;<a href="{{=URL(r=request, c='default', f='preferences')}}" title="{{=XML(T('My Preferences'))}}">{{=XML(T('My Preferences'))}}</a></div>
             <div>&middot;&nbsp;<a href="{{=URL(r=request, c='pm', f='index')}}" title="{{=XML(T('My Messages'))}}">{{=XML(T('My Messages'))}} {{=XML(forumhelper.get_my_messages_cnt())}}</a></div>
         {{else:}}

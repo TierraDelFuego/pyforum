@@ -5,6 +5,7 @@ import urllib2
 import urllib
 import json
 
+#from gluon.tools import prettydate
 
 # IDE "helper" not part of the framework
 if False:
@@ -19,7 +20,7 @@ if False:
     # komodo (edit) (or even other IDEs sich as Wing) "finds" the methods
     # for my classes, this does not have anyhing to do with the web2py
     # framework itself, as I am already instantiating "auth_user",
-    # "stackhelper" etc in one of my models...
+    # "stackhelper, forumhelper" etc in one of my models...
     from pyforum.modules.auth import CustomAuthentication as auth_user
     from pyforum.modules.forumhelper import ForumHelper as forumhelper
 
@@ -95,9 +96,9 @@ def index():
                 parents = cat_forum[13]
                 siblings = cat_forum[14]
                 hits = cat_forum[15]
-    
+
                 cat_view_access = False
-    
+
                 cat_visible_to = cat_visible_to_str.strip().split(',')
                 # Automatic access if the user is a forum admin, or if the
                 # category itself is not restricted to noone (i.e. the
@@ -110,20 +111,20 @@ def index():
                     cat_view_access = [
                         cat for cat in cat_visible_to
                         if auth_user.has_role(cat)] != []
-    
+
                 if cat_view_access:
                     if forum_id:
                         posts = 0
                         replies = 0
                         views = 0
-    
+
                         if parents:
                             posts = parents
                         if siblings:
                             replies = siblings
                         if hits:
                             views = hits
-                        
+
                         # Get Forum Last Updated Data
                         #select
                         #    zft.modifying_user_if,
@@ -164,7 +165,7 @@ def index():
                             last_updated = None
                             last_updated_by = None
                             last_updated_topic_id = None
-    
+
                         # Now, lets' set a flag to mark the "last updated"
                         # message in red (or any other visual cue) if the
                         # message is less than a day old (24 hs)
@@ -177,7 +178,7 @@ def index():
                                 update_flag = False
                         else:
                             update_flag = False
-    
+
                         # Now here is the deal, not everyone will be able
                         # to view/enter a particular forum, so here is when
                         # the logic applies. We'll check if the user logged
@@ -187,12 +188,12 @@ def index():
                         add_forum = False
                         access_roles = add_postings_access_roles.split(',') + \
                         reply_postings_access_roles.split(',')
-    
+
                         if [role for role in access_roles \
                             if auth_user.has_role(role) or \
                             anonymous_viewaccess]:
                             add_forum = True
-    
+
                         if add_forum:
                             if last_updated:
                                 s_last_updated = last_updated.strftime(
@@ -244,7 +245,7 @@ def index():
             sys_topic = sys_topics[0]
             if type(sys_topic) != type({}):
                 view_info.update({'sys_topic': sys_topics[0]})
-                
+
         return dict(cat_list=cat_list, view_info=view_info)
     else:
         # So apparently we have a new system install, redirect to the
@@ -255,7 +256,7 @@ def index():
 def runonce():
     """ This method will automatically be executed after initial install of
     the system.
-    
+
     """
     if session.RUN_ONCE is not None:
         tmp_username = session['NEW_USER']
@@ -278,7 +279,11 @@ def login():
     req = request.vars
     if req.form_submitted:
         if req.login_b:
-            if auth_user.authenticate(req.auth_alias, req.passwd):
+            user_id = auth_user.authenticate(req.auth_alias, req.passwd)
+            if user_id:
+                # Now, update some properties
+                forumhelper.put_member_property('zfmp_last_login', user_id,
+                                                prettydate(request.now, T))
                 isauth = True
             else:
                 errors.append('Invalid Username or Password entered')
@@ -288,8 +293,7 @@ def login():
     if isauth:
         # Grab the Language preferences here, and send it
         lang = forumhelper.get_member_property(
-            property_name='zfmp_locale', user_id=auth_user.get_user_id(),
-            default_value='')
+            property_name='zfmp_locale', user_id=user_id, default_value='')
         redirect(URL(r=request, c='default', f='index', vars=dict(lang=lang)))
     else:
         return dict(request=request, custom_messages=custom_messages)
@@ -336,18 +340,14 @@ def login_janrain():
         form_vars = {}
 
         # Now, update some properties
-        stackhelper.put_member_property('zfmp_last_login', user_id,
-                                        request.now)
+        forumhelper.put_member_property('zfmp_last_login', user_id,
+                                        prettydate(request.now, T))
         # Only update Name (zfmp_display_name) if the field is actually empty
         # 'zfmp_display_name' is the name that the user will have in the
         # system, it is an editable property and it will show in various
         # parts of the system.
-        if forumhelper.get_member_property(
-            'zfmp_display_name',
-            name.lower(),
-            '') == '':
-            
-            stackhelper.put_member_property('zfmp_display_name', name.lower(),
+        if forumhelper.get_display_name(user_id, '') == '':
+            forumhelper.put_member_property('zfmp_display_name', user_id,
                                             name)
     else:
         # TODO: Do something more elegant than this
@@ -446,7 +446,7 @@ def view_forum():
                     db(db.zf_topic.id==del_topic_id).delete() # Parent
                     view_info.update({'topics_removed': True})
 
-        
+
         # Pagination Manager Part I/II
         start = int(req.get('start', 0))
         #try:
@@ -454,7 +454,7 @@ def view_forum():
             forumhelper.get_system_property('zfsp_threads_per_page', 15))
         #except:
         #    topics_per_page = 15
-        
+
         # all Topics
         all_topics = db((db.zf_topic.forum_id==forum_id) & \
             (db.zf_topic.parent_flag==True)).count()
@@ -464,7 +464,7 @@ def view_forum():
             (db.zf_topic.parent_flag==True)).select(
             orderby=(~db.zf_topic.sticky_flag, ~db.zf_topic.modifying_date),
             limitby=(start, start+topics_per_page))
-        
+
         # Pagination Manager Part II/II
         pagination_widget = forumhelper.pagination_widget(
             all_topics,
@@ -574,7 +574,7 @@ def view_topic():
     captcha = forumhelper.gen_pwd()
     view_info['anon_captcha'] = captcha
     view_info['anon_captcha_base64'] = base64.standard_b64encode(captcha)
-    
+
     if req.form_submitted:
         topic_id = (req.topic_id)
     else:
@@ -707,7 +707,7 @@ def view_topic():
             children = db(db.zf_topic.parent_id == topic.id).select(
                 db.zf_topic.ALL, orderby=db.zf_topic.modifying_date,
                 limitby=(start, start+responses_per_page))
-            
+
             # Pagination Manager Part II/II
             pagination_widget = forumhelper.pagination_widget(
                 all_children, start, URL(r=request,
@@ -764,24 +764,23 @@ def add_topic():
                     req.captcha_response) == req.c)):
                 content = req.content
                 # Parse the title
-                # Ignore ALL html tags ANDdo not convert it
-                title = parse_content(req.title) 
+                # Ignore ALL html tags AND do not convert it
+                title = parse_content(req.title)
+
+                creation_user = auth_user.get_user_id()
+                modifying_user = creation_user
                 if is_admin:
                     locked_flag = req.locked_flag is not None
                     sticky_flag = req.sticky_flag is not None
                     system_announcement_flag = req.system_announcement_flag \
                                                is not None
-                    creation_user = req.creation_user
                     creation_date = req.creation_date
-                    modifying_user = req.modifying_user
                     modifying_date = req.modifying_date
                 else:
                     locked_flag = False
                     sticky_flag = False
                     system_announcement_flag = False
-                    creation_user = auth_user.get_user_id()
                     creation_date = request.now
-                    modifying_user = creation_user
                     modifying_date = creation_date
 
                 # Add Signature from Member Profile if requested.
@@ -1013,7 +1012,7 @@ def rss():
 def contact_admin():
     """ Contact Admin - This can allow anonymous users to post spam, so
     for them, I'll add some "poor man's captcha"
-    
+
     """
     view_info = {}
     view_info['errors'] = []
@@ -1085,7 +1084,7 @@ def preferences():
     AVATAR_MAX_HEIGHT = 100
     AVATAR_MAX_WIDTH  = 120
     AVATAR_MAX_SIZE   = 15000 # Bytes
-    user_email = db(db.auth_users.id==user_id).select(
+    user_email = db(db.auth_users.id == user_id).select(
         db.auth_users.auth_email)[0].auth_email
     view_info['props'].update({'real_name':
         forumhelper.get_member_property('zfmp_real_name', user_id, '')})
@@ -1107,17 +1106,17 @@ def preferences():
     view_info['props'].update({'username':
         forumhelper.get_member_property(
             'zfmp_display_name', user_id, 'user_%s' % (user_id))})
-    forum_subscriptions = db((db.zf_member_subscriptions.user_id==user_id) &
-        (db.zf_member_subscriptions.subscription_type=='F') &
-        (db.zf_member_subscriptions.subscription_id==db.zf_forum.id) &
-        (db.zf_member_subscriptions.subscription_active==True)).select(
+    forum_subscriptions = db((db.zf_member_subscriptions.user_id == user_id) &
+        (db.zf_member_subscriptions.subscription_type == 'F') &
+        (db.zf_member_subscriptions.subscription_id == db.zf_forum.id) &
+        (db.zf_member_subscriptions.subscription_active == True)).select(
         db.zf_forum.id, db.zf_forum.forum_title)
-    topic_subscriptions = db((db.zf_member_subscriptions.user_id==user_id) &
-        (db.zf_member_subscriptions.subscription_type=='T') &
-        (db.zf_member_subscriptions.subscription_id==db.zf_topic.id) &
-        (db.zf_member_subscriptions.subscription_active==True)).select(
+    topic_subscriptions = db((db.zf_member_subscriptions.user_id == user_id) &
+        (db.zf_member_subscriptions.subscription_type == 'T') &
+        (db.zf_member_subscriptions.subscription_id == db.zf_topic.id) &
+        (db.zf_member_subscriptions.subscription_active == True)).select(
         db.zf_topic.id, db.zf_topic.title)
-    available_languages = db(db.zf_available_languages.enabled==True).select(
+    available_languages = db(db.zf_available_languages.enabled == True).select(
         db.zf_available_languages.ALL,
         orderby=db.zf_available_languages.language_desc)
 
@@ -1140,7 +1139,7 @@ def preferences():
                 zfmp_allow_pm_use = ""
             forumhelper.put_member_property('zfmp_allow_pm_use', user_id,
                                             zfmp_allow_pm_use)
-            
+
             # "Username" is a new member property called 'zfmp_display_name'
             # Which is only an identifier for the user, which they can change,
             # however, there cannot be two users with the same name, so
@@ -1196,7 +1195,7 @@ def preferences():
                 if req.new_passwd == req.new_passwd_confirm:
                     hash_passwd = hashlib.sha1(
                         auth_user.get_user_name() + req.new_passwd).hexdigest()
-                    db(db.auth_users.id==user_id).update(
+                    db(db.auth_users.id == user_id).update(
                         auth_passwd=hash_passwd)
                 else:
                     view_info['errors'].append('Password and confirmation do '
@@ -1204,9 +1203,9 @@ def preferences():
 
             # Avatars
             if req.remove_avatar:
-                db(db.zf_member_avatars.user_id==user_id).update(
+                db(db.zf_member_avatars.user_id == user_id).update(
                     avatar_active=False)
-                
+
             # Selected Language (allow storing the "default"
             # value (an empty string))
             forumhelper.put_member_property('zfmp_locale', user_id,

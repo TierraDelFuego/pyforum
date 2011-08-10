@@ -29,7 +29,7 @@
         <tbody>
             <tr>
                 <td>{{=XML(T('Author'))}}:</td>
-                <td>{{=auth_user.get_user_name()}}</td>
+                <td>{{=forumhelper.get_display_name()}}</td>
             </tr>
             <tr>
                 <td><span class="required">*</span> {{=XML(T('Title'))}}:</td>
@@ -75,20 +75,14 @@
                     <td><input type="checkbox" id="system_announcement_flag" name="system_announcement_flag" {{if request.vars.get('system_announcement_flag', ''):}}checked="checked"{{pass}} /></td>
                 </tr>
                 <tr>
-                    <td><span class="warning">*</span> {{=XML(T('Creator'))}}:</td>
+                    <td><span class="warning">*</span> {{=XML(T('Created'))}}:</td>
                     <td>
-                        <input disabled="disabled" type="text" id="creation_user_email" name="creation_user_email" value="{{=request.vars.get('creation_user', auth_user.get_user_name())}}" style="width:200px;" />
-                        <input type="hidden" id="creation_user" name="creation_user" value="{{=auth_user.get_user_id()}}" />
-                        @
                         <input type="text" id="creation_date" name="creation_date" value="{{=request.vars.get('creation_date', request.now.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
                     </td>
                 </tr>
                 <tr>
-                    <td><span class="warning">*</span> {{=XML(T('Modificator'))}}:</td>
+                    <td><span class="warning">*</span> {{=XML(T('Modified'))}}:</td>
                     <td>
-                        <input disabled="disabled" type="text" id="modifying_user_email" name="modifying_user_email" value="{{=request.vars.get('modifying_user', auth_user.get_user_name())}}" style="width:200px;" />
-                        <input type="hidden" id="modifying_user" name="modifying_user" value="{{=auth_user.get_user_id()}}" />
-                        @
                         <input type="text" id="modifying_date" name="modifying_date" value="{{=request.vars.get('modifying_date', request.now.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
                     </td>
                 </tr>

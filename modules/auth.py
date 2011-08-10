@@ -55,7 +55,6 @@ class CustomAuthentication(object):
 
     def authenticate(self, auth_email, auth_passwd):
         """ sets authentication for the user """
-        auth = False
         self.logout()  # Clear up previous session if any
         hash_pwd = hashlib.sha1('%s%s' % (auth_email, auth_passwd)).hexdigest()
         rows = self.db((self.db.auth_users.auth_email == auth_email) &
@@ -67,7 +66,7 @@ class CustomAuthentication(object):
             self.session.auth_email = auth_email
             self.session.user_id = self.__user_id
             auth = True
-        return auth
+        return self.session.user_id
 
     def authenticate_janrain(self, identifier, name, email, profile_pic_url):
         """ Authenticates against JANRAIN, formerly RPX, an authentication
@@ -94,7 +93,7 @@ class CustomAuthentication(object):
             # New User - add it with the default role of Member
             # NOTE: THIS ROLE MUST EXIST
             auth_role_id = self.db(
-                self.db.auth_roles.role_name == 'zMember').select(
+                self.db.auth_roles.auth_role_name == 'zMember').select(
                     self.db.auth_roles.id)[0].id
             auth_user_id = self.db.auth_users.insert(
                 auth_email=email,
@@ -185,7 +184,7 @@ class CustomAuthentication(object):
     def get_user_email(self):
         """ Deprecated - for compatibility only, use get_user_name()
         instead
-        
+
         """
         return self.get_user_name()
 

@@ -107,7 +107,7 @@ def edit_category():
         if req.update_cat:
             cat_id = int(req.cat_id)
             this_category = db(db.zf_forum_category.id==cat_id).select(
-                db.zf_forum_category.ALL)[0]            
+                db.zf_forum_category.ALL)[0]
             cat_name = req.cat_name
             cat_desc = req.cat_desc or ''
             cat_visible_list = []
@@ -140,7 +140,7 @@ def edit_category():
                 redirect(URL(r=request, c='zadmin', f='categories'))
         elif req.remove:
             # User has requested to remove an entire category, if the category
-            # is empty, remove it immediately, otherwise send it to a page  
+            # is empty, remove it immediately, otherwise send it to a page
             # where the user can move the forums associated to the category
             # to other category.
             cat_id = int(req.cat_id)
@@ -166,7 +166,7 @@ def edit_category():
 def forums():
     """ Main forums display page, basically show every forum for a
     specific category and display the forum's properties
-    
+
     """
     req = request.vars
     view_info = {}
@@ -507,6 +507,7 @@ def users():
                           'join_date': this_user.auth_created_on}})
     return dict(request=request, users=all_users, view_info=view_info)
 
+@auth_user.requires_role('zAdministrator')
 def user_edit():
     req = request.vars
     view_info = {}
@@ -520,32 +521,56 @@ def user_edit():
                                   orderby=db.auth_roles.auth_role_name)
     view_info.update({'available_roles': available_roles})
     if req.form_submitted:
-        username = req.username
+        user_id = req.user_id
     else:
-        username = request.args[0]
+        user_id = request.args[0]
 
     user_curr_role_id = db(
-        (db.auth_users.auth_alias==username) & \
-        (db.auth_users.id==db.auth_user_role.auth_user_id)).select(
+        (db.auth_users.id == user_id) &
+        (db.auth_users.id == db.auth_user_role.auth_user_id)).select(
         db.auth_user_role.auth_role_id)[0].auth_role_id
     view_info.update({'current_role_id': user_curr_role_id})
-    
+
     enabled_user = db(
-        (db.auth_users.auth_alias==username) & \
-        (db.auth_users.is_enabled==True)).select(db.auth_users.auth_alias)
-    user_email = db(db.auth_users.auth_alias==username).select(db.auth_users.auth_email)[0].auth_email
-    view_info['props'].update({'real_name': forumhelper.get_member_property('zfmp_real_name', username, '')})
-    view_info['props'].update({'web_page': forumhelper.get_member_property('zfmp_web_page', username, '')})
-    view_info['props'].update({'country': forumhelper.get_member_property('zfmp_country', username, '')})
-    view_info['props'].update({'signature': forumhelper.get_member_property('zfmp_signature', username, '')})
-    view_info['props'].update({'locale': forumhelper.get_member_property('zfmp_locale', username, '')})
-    view_info['props'].update({'allow_pm_use': forumhelper.get_member_property('zfmp_allow_pm_use', username, '')})
-    view_info['props'].update({'postings': forumhelper.get_member_property('zfmp_postings', username, '0')})
-    view_info['props'].update({'last_login': forumhelper.get_member_property('zfmp_last_login', username, str(XML(T('Never'))))})
-    view_info['props'].update({'is_enabled': len(enabled_user)})
-    forum_subscriptions = db((db.zf_member_subscriptions.auth_user==username) & (db.zf_member_subscriptions.subscription_type=='F') & (db.zf_member_subscriptions.subscription_id==db.zf_forum.id) & (db.zf_member_subscriptions.subscription_active==True)).select(db.zf_forum.id, db.zf_forum.forum_title)
-    topic_subscriptions = db((db.zf_member_subscriptions.auth_user==username) & (db.zf_member_subscriptions.subscription_type=='T') & (db.zf_member_subscriptions.subscription_id==db.zf_topic.id) & (db.zf_member_subscriptions.subscription_active==True)).select(db.zf_topic.id, db.zf_topic.title)
-    available_languages = db(db.zf_available_languages.enabled==True).select(db.zf_available_languages.ALL, orderby=db.zf_available_languages.language_desc)
+        (db.auth_users.id == user_id) & \
+        (db.auth_users.is_enabled == True)).count()
+    user_email = db(db.auth_users.id == user_id).select(
+        db.auth_users.auth_email)[0].auth_email
+    view_info['props'].update({'real_name': forumhelper.get_member_property(
+        'zfmp_real_name', user_id, '')})
+    view_info['props'].update({'web_page': forumhelper.get_member_property(
+        'zfmp_web_page', user_id, '')})
+    view_info['props'].update({'country': forumhelper.get_member_property(
+        'zfmp_country', user_id, '')})
+    view_info['props'].update({'signature': forumhelper.get_member_property(
+        'zfmp_signature', user_id, '')})
+    view_info['props'].update({'locale': forumhelper.get_member_property(
+        'zfmp_locale', user_id, '')})
+    view_info['props'].update({'allow_pm_use': forumhelper.get_member_property(
+        'zfmp_allow_pm_use', user_id, '')})
+    view_info['props'].update({'postings': forumhelper.get_member_property(
+        'zfmp_postings', user_id, '0')})
+    view_info['props'].update({'last_login': forumhelper.get_member_property(
+        'zfmp_last_login', user_id, str(XML(T('Never'))))})
+    view_info['props'].update({'is_enabled': enabled_user})
+    view_info['props'].update({'username':
+        forumhelper.get_member_property(
+            'zfmp_display_name', user_id, 'user_%s' % (user_id))})
+    forum_subscriptions = db((
+        db.zf_member_subscriptions.user_id == user_id) &
+        (db.zf_member_subscriptions.subscription_type=='F') &
+        (db.zf_member_subscriptions.subscription_id == db.zf_forum.id) &
+        (db.zf_member_subscriptions.subscription_active == True)).select(
+        db.zf_forum.id, db.zf_forum.forum_title)
+    topic_subscriptions = db(
+        (db.zf_member_subscriptions.user_id == user_id) &
+        (db.zf_member_subscriptions.subscription_type == 'T') &
+        (db.zf_member_subscriptions.subscription_id == db.zf_topic.id) &
+        (db.zf_member_subscriptions.subscription_active == True)).select(
+        db.zf_topic.id, db.zf_topic.title)
+    available_languages = db(db.zf_available_languages.enabled == True).select(
+        db.zf_available_languages.ALL,
+        orderby=db.zf_available_languages.language_desc)
 
     if req.form_submitted:
         if req.update_b:
@@ -553,27 +578,27 @@ def user_edit():
             new_role = int(req.new_role)
             if (new_role != user_curr_role_id):
                 # Only change role if it was modified
-                user_id = db(db.auth_users.auth_alias==username).select(
+                user_id = db(db.auth_users.id == user_id).select(
                     db.auth_users.id)[0].id
-                db(db.auth_user_role.auth_user_id==user_id).update(
+                db(db.auth_user_role.auth_user_id == user_id).update(
                     auth_role_id=new_role)
-            
+
             # Standard Properties
-            forumhelper.put_member_property('zfmp_real_name', username,
+            forumhelper.put_member_property('zfmp_real_name', user_id,
                                             req.real_name)
-            forumhelper.put_member_property('zfmp_web_page', username,
+            forumhelper.put_member_property('zfmp_web_page', user_id,
                                             req.web_page)
-            forumhelper.put_member_property('zfmp_country', username,
+            forumhelper.put_member_property('zfmp_country', user_id,
                                             req.country)
-            forumhelper.put_member_property('zfmp_signature', username,
+            forumhelper.put_member_property('zfmp_signature', user_id,
                                             req.signature)
-            forumhelper.put_member_property('zfmp_locale', username,
+            forumhelper.put_member_property('zfmp_locale', user_id,
                                             req.locale)
             if req.allow_pm_use:
                 zfmp_allow_pm_use = "1"
             else:
                 zfmp_allow_pm_use = ""
-            forumhelper.put_member_property('zfmp_allow_pm_use', username,
+            forumhelper.put_member_property('zfmp_allow_pm_use', user_id,
                                             zfmp_allow_pm_use)
 
             # Topic Subscriptions
@@ -582,10 +607,10 @@ def user_edit():
                 if type(remove_topic_subscription) == type([]):
                     for topic_id in remove_topic_subscription:
                         forumhelper.del_topic_subscription(
-                            int(topic_id), username)
+                            int(topic_id), user_id)
                 else:
                     forumhelper.del_topic_subscription(
-                        int(remove_topic_subscription), username)
+                        int(remove_topic_subscription), user_id)
 
             # Forum Subscriptions
             remove_forum_subscription = req.remove_forum_subscription
@@ -593,22 +618,22 @@ def user_edit():
                 if type(remove_forum_subscription) == type([]):
                     for forum_id in remove_forum_subscription:
                         forumhelper.del_forum_subscription(int(forum_id),
-                                                           username)
+                                                           user_id)
                 else:
                     forumhelper.del_forum_subscription(
-                        int(remove_forum_subscription), username)
+                        int(remove_forum_subscription), user_id)
 
             # Password Changes
             if req.new_passwd:
                 if req.new_passwd == req.new_passwd_confirm:
                     hash_passwd = hashlib.sha1(
-                        username + req.new_passwd).hexdigest()
-                    db(db.auth_users.auth_alias==username).update(
+                        auth_user.get_user_name() + req.new_passwd).hexdigest()
+                    db(db.auth_users.id == user_id).update(
                         auth_passwd=hash_passwd)
 
             # Avatars
             if req.remove_avatar:
-                db(db.zf_member_avatars.auth_user==username).update(
+                db(db.zf_member_avatars.user_id == user_id).update(
                     avatar_active=False)
             try:
                 filename = req.avatar_data.filename
@@ -640,17 +665,18 @@ def user_edit():
                         raise ValueError, view_info['errors']
                     if not view_info['errors']:
                         #raise ValueError, (c_type, width, height,)
-                        if forumhelper.has_member_avatar(username,
+                        if forumhelper.has_member_avatar(user_id,
                                                          bypass=False):
                             # Update:
-                            db(db.zf_member_avatars.auth_user == username\
-                               ).update(content_type=content_type,
-                                        avatar_image=image_data,
-                                        avatar_active=True)
+                            db(db.zf_member_avatars.user_id == \
+                               user_id).update(content_type=content_type,
+                                               avatar_image=image_data,
+                                               avatar_active=True)
                         else:
                             # Add:
                             db.zf_member_avatars.insert(
-                                content_type=content_type, auth_user=username,
+                                content_type=content_type,
+                                user_id=user_id,
                                 avatar_image=image_data,
                                 avatar_active=True)
 
@@ -659,22 +685,22 @@ def user_edit():
             # Disabling: set the disabled flag on,
             # and change the user's password
             hash_passwd = hashlib.sha1(str(random.random())[2:]).hexdigest()
-            #hash_passwd = sha.new(str(random.random())[2:]).hexdigest()
-            db(db.auth_users.auth_alias==username).update(
+            db(db.auth_users.id == user_id).update(
                 auth_passwd=hash_passwd, is_enabled=False)
             redirect(URL(r=request, c='zadmin', f='users'))
         elif req.enable_b:
-            # Password defaults to username
-            hash_passwd = hashlib.sha1(username).hexdigest()
-            #hash_passwd = sha.new(username).hexdigest()
-            db(db.auth_users.auth_alias==username).update(
+            # Password defaults to email
+            hash_passwd = hashlib.sha1(user_email + user_email).hexdigest()
+            db(db.auth_users.id == user_id).update(
                 auth_passwd=hash_passwd, is_enabled=True)
             redirect(URL(r=request, c='zadmin', f='users'))
         else:
             redirect(URL(r=request, c='zadmin', f='users'))
     else:
-        return dict(request=request, view_info=view_info, username=username,
+        return dict(request=request,
+                    view_info=view_info,
                     user_email=user_email,
+                    user_id=user_id,
                     forum_subscriptions=forum_subscriptions,
                     topic_subscriptions=topic_subscriptions,
                     available_languages=available_languages)

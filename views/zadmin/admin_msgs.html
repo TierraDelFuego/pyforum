@@ -26,11 +26,13 @@
                                 <input type="checkbox" id="msg_id_{{=message.id}}" name="msg_id_{{=message.id}}" value="{{=message.id}}" />
                             </td>
                             <td class="cell3d center-xy">
-                                {{if message.auth_user == 'Anonymous User':}}
-                                    <b>{{=XML(T('Anonymous User'))}}</b>
+                                {{if message.user_id:}}
+                                    <a href="{{=URL(r=request, c='pm', f='message_new', args=[message.user_id])}}"
+                                    title="{{=XML(T('Notify User'))}}" class="linkb">{{=forumhelper.get_display_name(message.user_id)}}</a>
                                 {{else:}}
-                                    <a href="{{=URL(r=request, c='pm', f='message_new', args=[message.auth_user])}}" title="{{=XML(T('Notify User'))}}" class="linkb">{{=message.auth_user}}</a></td>
+                                    <b>{{=XML(T('Anonymous User'))}}</b>
                                 {{pass}}
+                            </td>
                             <td class="cell3d center-xy">{{=message.subject}}</a></td>
                             <td class="cell3d center-xy">{{=message.message}}</a></td>
                             <td class="cell3d center-xy">{{=message.creation_date.strftime(str(XML('%d/%m/%Y')))}}</td>

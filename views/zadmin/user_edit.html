@@ -11,19 +11,24 @@
 <form method="post" id="user_edit_form" action="" enctype="multipart/form-data">
     <fieldset id="user_edit_form_fields">
         <input type="hidden" id="form_submitted" name="form_submitted" value="1" />
-        <input type="hidden" id="username" name="username" value="{{=username}}" />
+        <input type="hidden" id="user_id" name="user_id" value="{{=user_id}}" />
         <input type="hidden" id="warn_disable" name="warn_disable" value="{{=XML(T('Warning. Disabling a user will prevent him/her from logging into the system (you can change this later). Please confirm'))}}" />
         <input type="hidden" id="warn_enable" name="warn_enable" value="{{=XML(T('Please confirm you wish to enable this user'))}}" />
 
         <table cellspacing="2" cellpadding="2">
             <tbody>
                 <tr>
-                    <td>{{=XML(T('Username'))}}:</td>
-                    <td><a href="{{=URL(r=request, c='pm', f='message_new', args=[username])}}" title="" class="linkb">{{=username}}</a></td>
-                </tr>
-                <tr>
                     <td>{{=XML(T('Email'))}}:</td>
                     <td><a href="mailto:{{=user_email}}" title="{{=user_email}}">{{=user_email}}</a></td>
+                </tr>
+                <tr>
+                    <td>{{=XML(T('Username'))}}:</td>
+                    <td><input type="text" style="width:200px;" class="formelem"
+                               name="username"
+                               id="username"
+                               value="{{=request.vars.get('username', view_info['props']['username'])}}" />
+                    <i class="note">* {{=XML(T('This will display in you postings, search, etc'))}}.</i>
+                    </td>
                 </tr>
                 <tr>
                     <td>{{=XML(T('New Password'))}}:</td>
@@ -96,7 +101,7 @@
                                 {{pass}}
                             </select>
                         {{else:}}
-                            {{=XML(T('User is not subscribed to any forum'))}}
+                            {{=XML(T('User is not subscribed to any forums'))}}
                         {{pass}}
                     </td>
                 </tr>
@@ -118,8 +123,8 @@
                 <tr>
                     <td>{{=XML(T('Avatar'))}}:</td>
                     <td>
-                        {{if forumhelper.has_member_avatar(username):}}
-                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[username])}}" alt="" />
+                        {{if forumhelper.has_member_avatar(user_id):}}
+                            <img src="{{=URL(r=request, c='zadmin', f='get_avatar_image', args=[user_id])}}" alt="" />
                             <label for="remove_avatar">{{=XML(T('Remove'))}}:</label>
                             <input type="checkbox" id="remove_avatar" name="remove_avatar" {{if request.vars.get('remove_avatar', ''):}}checked="checked"{{pass}} />
                             <br />
