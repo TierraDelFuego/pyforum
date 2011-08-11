@@ -55,7 +55,7 @@ def index():
             zf_forum_category as zfc
                 left join zf_forum as zf on zfc.id = zf.cat_id
                 left join zf_topic as zt on zt.forum_id = zf.id
-                and zt.disabled_flag = 0
+                and zt.disabled_flag = 'F'
         group by
             zf.id,
             zf.forum_title,
@@ -74,6 +74,7 @@ def index():
             zfc.cat_sort,
             zf.forum_sort
         """
+        #raise ValueError(sql)
         # Returns a tuple and each tuple element containing the column values
         cats_and_forums = db.executesql(sql)
         if cats_and_forums:
@@ -598,10 +599,10 @@ def view_topic():
                 forumhelper.del_topic_subscription(topic_id, user_id)
 
         # Handle Topic Hits Here as well
-        db(db.zf_topic.id==topic_id).update(hits=topic.hits+1)
+        db(db.zf_topic.id == topic_id).update(hits=topic.hits+1)
 
         # Grab the forum
-        forum = db(db.zf_forum.id==topic.forum_id).select()[0]
+        forum = db(db.zf_forum.id == topic.forum_id).select()[0]
 
         if len(forum.add_postings_access_roles):
             security_info['can_add'] = [
@@ -635,7 +636,7 @@ def view_topic():
                 for req_var in req:
                     if req_var[:19] == 'remove_topic_child_':
                         child_topic_id = int(req[req_var])
-                        db(db.zf_topic.id==child_topic_id).delete()
+                        db(db.zf_topic.id == child_topic_id).delete()
         if parent_topic_removed:
             redirect(URL(r=request, c='default', f='view_forum',
                          args=[forum.id]))
@@ -709,7 +710,7 @@ def view_topic():
             responses_per_page = int(forumhelper.get_system_property(
                 'zfsp_responses_per_page', 15))
             # Children Topics
-            all_children = db(db.zf_topic.parent_id==topic.id).count()
+            all_children = db(db.zf_topic.parent_id == topic.id).count()
             children = db(db.zf_topic.parent_id == topic.id).select(
                 db.zf_topic.ALL, orderby=db.zf_topic.modifying_date,
                 limitby=(start, start+responses_per_page))

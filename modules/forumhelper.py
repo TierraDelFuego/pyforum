@@ -180,15 +180,19 @@ class ForumHelper(object):
         return subscribed
 
     def add_topic_subscription(self, topic_id, user_id):
+        """ Handles Topic Subscriptions """
         return self._handle_subscription(topic_id, 'T', user_id, 'add')
 
     def del_topic_subscription(self, topic_id, user_id):
+        """ Handles Topic Subscriptions """
         return self._handle_subscription(topic_id, 'T', user_id, 'remove')
 
     def add_forum_subscription(self, forum_id, user_id):
+        """ Handles Forum Subscriptions """
         return self._handle_subscription(forum_id, 'F', user_id, 'add')
 
     def del_forum_subscription(self, forum_id, user_id):
+        """ Handles Forum Subscriptions """
         return self._handle_subscription(forum_id, 'F', user_id, 'remove')
 
     def _handle_subscription(self, object_id, object_type, user_id, action):
@@ -199,12 +203,13 @@ class ForumHelper(object):
         success = True
         # See if the record actually exists
         subscription = self.db(
-            (self.db.zf_member_subscriptions.subscription_id == object_id) & \
-            (self.db.zf_member_subscriptions.user_id == user_id) & \
+            (self.db.zf_member_subscriptions.subscription_id == object_id) &
+            (self.db.zf_member_subscriptions.user_id == user_id) &
             (self.db.zf_member_subscriptions.subscription_type == \
              object_type)).select()
         if len(subscription):
-            # Ok, there is a record, this means that we'll update it rather than add a new one
+            # Ok, there is a record, this means that we'll update it rather
+            # than add a new one
             if action == "add":
                 self.db(
                     (self.db.zf_member_subscriptions.subscription_id == \
@@ -293,16 +298,16 @@ class ForumHelper(object):
                         orderby=~self.db.zf_topic.modifying_date,
                         limitby=(0, max_topics))
             else:
-                latest_topics = self.db(\
-                        (self.db.zf_topic.system_announcement_flag == False) &
-                        (self.db.zf_forum.include_latest_topics == True) &
-                        (self.db.zf_forum.id == self.db.zf_topic.forum_id) &
-                        (self.db.zf_topic.parent_flag == True)
-                    ).select(self.db.zf_topic.title,
-                        self.db.zf_topic.id,
-                        self.db.zf_topic.modifying_date,
-                        orderby=~self.db.zf_topic.modifying_date,
-                        limitby=(0, max_topics))
+                latest_topics = self.db(
+                    (self.db.zf_topic.system_announcement_flag == False) &
+                    (self.db.zf_forum.include_latest_topics == True) &
+                    (self.db.zf_forum.id == self.db.zf_topic.forum_id) &
+                    (self.db.zf_topic.parent_flag == True)).select(
+                    self.db.zf_topic.title,
+                    self.db.zf_topic.id,
+                    self.db.zf_topic.modifying_date,
+                    orderby=~self.db.zf_topic.modifying_date,
+                    limitby=(0, max_topics))
             if not len(latest_topics) and not rss:
                 latest_topics = [{'error':'No Topics'}]
         else:
@@ -317,7 +322,7 @@ class ForumHelper(object):
         """
         # Grab all users subscribed to this object
         subscribers = self.db(
-            (self.db.zf_member_subscriptions.subscription_active==True) &
+            (self.db.zf_member_subscriptions.subscription_active == True) &
             (self.db.zf_member_subscriptions.subscription_id == \
              subscription_id) &
             (self.db.zf_member_subscriptions.subscription_type == \
@@ -325,15 +330,25 @@ class ForumHelper(object):
             self.db.zf_member_subscriptions.user_id)
         if subscribers:
             for subscriber in subscribers:
-                self.db.zf_member_subscriptions_notification.insert(
-                    user_id=subscriber.user_id,
-                    subscription_id=subscription_id,
-                    subscription_type=subscription_type,
-                    creation_date=now,
-                    is_processed=False)
+                # Only add this subscription notification entry
+                # if another one for the same type/object/validity does
+                # not exist yet.
+                if not self.db(
+                    (self.db.zf_member_subscriptions_notification.user_id == \
+                     subscriber.user_id) &
+                    (self.db.zf_member_subscriptions_notification.subscription_id == subscription_id) &
+                    (self.db.zf_member_subscriptions_notification.subscription_type == subscription_type) &
+                    (self.db.zf_member_subscriptions_notification.is_processed == False)).count():
+                    self.db.zf_member_subscriptions_notification.insert(
+                        user_id=subscriber.user_id,
+                        subscription_id=subscription_id,
+                        subscription_type=subscription_type,
+                        creation_date=now,
+                        is_processed=False)
 
     def get_inappropriate_topics_cnt(self):
-        return self.db(self.db.zf_topic_inappropriate.read_flag==False).count()
+        return self.db(self.db.zf_topic_inappropriate.read_flag ==\
+                       False).count()
 
     def get_admin_msgs_cnt(self):
         return self.db(self.db.zf_admin_messages.read_flag==False).count()
@@ -366,7 +381,8 @@ class ForumHelper(object):
         # See PNG v1.2 spec (http://www.cdrom.com/pub/png/spec/)
         # Bytes 0-7 are below, 4-byte chunk length, then 'IHDR'
         # and finally the 4-byte width, height
-        elif ((size >= 24) and (data[:8] == '\211PNG\r\n\032\n') and (data[12:16] == 'IHDR')):
+        elif ((size >= 24) and (data[:8] == '\211PNG\r\n\032\n') and
+            (data[12:16] == 'IHDR')):
             content_type = 'image/png'
             w, h = struct.unpack(">LL", data[16:24])
             width = int(w)
@@ -405,43 +421,6 @@ class ForumHelper(object):
 
         return content_type, width, height
 
-    def emailpwd(self, req_email):
-        admin_email = self.get_system_property('zfsp_admin_contact_email', '')
-        mailserver = self.get_system_property('zfsp_mailserver', '')
-        username = self.get_system_property('zfsp_mailserver_username', '')
-        passwd = self.get_system_property('zfsp_mailserver_passwd', '')
-        new_user_pwd = self.gen_pwd()
-        sent = False
-        existing_user = self.db(self.db.auth_users.auth_email==req_email).select(self.db.auth_users.auth_alias)
-        if len(existing_user):
-            self.db(self.db.auth_users.auth_email==req_email).update(auth_passwd=hashlib.sha1(new_user_pwd).hexdigest())
-            if admin_email and mailserver and req_email:
-                sender = [admin_email]
-                recipients = [req_email]
-                message = """You have requested a password reset from %s.
-
-                Your new password is: %s
-
-                pyForum Team""" % (URL(r=self.request, c='default', f='index'), new_user_pwd)
-                session = smtplib.SMTP(mailserver)
-                if username and passwd:
-                    try:
-                        session.login(username, passwd)
-                    except:
-                        pass
-                try:
-                    smtpresult = session.sendmail(sender, recipients, message)
-                except:
-                    smtpresult = 'Error' # TODO: Elaborate
-
-                if smtpresult:
-                    sent = False
-                else:
-                    sent = True
-        else:
-            sent = False
-        return sent
-
     def gen_pwd(self):
         vowels='aeiou'
         consonants='bcdfghjklmnpqrstvwxyz'
@@ -466,14 +445,16 @@ class ForumHelper(object):
         """ A Pagination Widget """
 
         # total = total number of results
-        # start = zero-based index of first result to be displayed (e.g. page 3 of 5 10-batch pages starts with 20)
+        # start = zero-based index of first result to be displayed (e.g.
+        # page 3 of 5 10-batch pages starts with 20)
         # href  = url + necessary querystring for your results
 
         # Items per page
         if ptype == 'forum':
             batch = int(self.get_system_property('zfsp_threads_per_page', 15))
         elif ptype == 'topic':
-            batch = int(self.get_system_property('zfsp_responses_per_page', 15))
+            batch = int(self.get_system_property(
+                'zfsp_responses_per_page', 15))
         elif ptype == 'admin_users':
             batch = 50
         else:
@@ -485,15 +466,19 @@ class ForumHelper(object):
         # total number of pages. use ceiling to catch a remainder.
         pages = int(math.ceil(float(total) / float(batch)))
 
-        # Need to modify the widget to return a more user-friendly pagination UI, in the form:
+        # Need to modify the widget to return a more user-friendly pagination
+        # UI, in the form:
         # [Previous 10] [Previous] 1 2 3 4 5 6 7 [8] 9 10 [Next] [Next 10]
         # If Click on "next 10" then show:
-        # [Previous 10] [Previous] 11 12 13 14 15 16 17 [18] 19 20 [Next] [Next 10]
+        # [Previous 10] [Previous] 11 12 13 14 15 16 17 [18] 19 20 [Next]
+        #     [Next 10]
         # Assuming there are 25 "pages":
         # [Previous 10] [Previous] 21 22 23 24 [25] [Next] [Next 10]
         # Things to consider:
-        # - If on page 28 of a 32 page widget, click on "Next 10" must go to the "last" (32) number, not 38
-        # - "Previous", "Previous 10", "Next" and "Next 10" must be disabled when appropriate
+        # - If on page 28 of a 32 page widget, click on "Next 10" must go to
+        # the "last" (32) number, not 38
+        # - "Previous", "Previous 10", "Next" and "Next 10" must be disabled
+        # when appropriate
 
         PAGE_SET = 10
         sets_to_display = pages / PAGE_SET
@@ -507,17 +492,24 @@ class ForumHelper(object):
         real_sets_to_display = total / float(batch)
 
         if real_sets_to_display > 1:
-            html_code = '<div class="breadcrumbs" style="text-align:center;"> <span i18n:translate="">Pages</span>:\n'
+            html_code = '<div class="breadcrumbs" style="text-align:center;"> '
+            '<span i18n:translate="">Pages</span>:\n'
 
             if start >= (batch * PAGE_SET):
-                html_code += '[<a class="breadcrumbs" href="%s?start=%s">Previous %s</a>]&nbsp;' % (href, start - (batch * PAGE_SET), PAGE_SET)
+                html_code += '[<a class="breadcrumbs" href="'
+                html_code += '%s?start=%s">Previous %s</a>]&nbsp;' % (
+                    href, start - (batch * PAGE_SET), PAGE_SET)
 
             if start - batch >= 0:
-                html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Previous</a>]&nbsp;' % (href, start - batch)
+                html_code += '[<a class="breadcrumbs" href='
+                html_code += '"%s?start=%s" title="">Previous</a>]&nbsp;' % (
+                    href, start - batch)
 
-            # Need to find the right "range", for example on a 10-page set of 3-results-per-page for 44 total results,
+            # Need to find the right "range", for example on a 10-page set of
+            # 3-results-per-page for 44 total results,
             # If I click page 6, the range must be 1 2 3 4 5 6 7 8 9 10
-            # If I am on page 11, then click on 15, the range must be 11 12 13 14 15 16 17 18 19 20
+            # If I am on page 11, then click on 15, the range must be 11 12
+            # 13 14 15 16 17 18 19 20
             # and so on (Note 16 17 18 19 20 must be disabled)
             start_number = 0
             end_number = PAGE_SET
@@ -537,16 +529,22 @@ class ForumHelper(object):
                     html_code += '<b>%s</b>&nbsp;' % str(idx)
                 else:
                     if idx * batch - batch < total:
-                        html_code += '<a class="breadcrumbs" href="%s?start=%s" title="">%s</a>&nbsp;' % (href, page, idx)
+                        html_code += '<a class="breadcrumbs" href="'
+                        html_code += '%s?start=%s" title="">%s</a>&nbsp;' % (
+                            href, page, idx)
 
                 page += batch
 
             if start + batch < total:
-                html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Next</a>]&nbsp;' % (href, start + batch)
+                html_code += '[<a class="breadcrumbs" href="'
+                html_code += '%s?start=%s" title="">Next</a>]&nbsp;' % (
+                    href, start + batch)
 
             if start + (batch * PAGE_SET) < total:
                 tot = start + (batch * PAGE_SET)
-                html_code += '[<a class="breadcrumbs" href="%s?start=%s" title="">Next %s</a>]&nbsp;' % (href, tot, PAGE_SET)
+                html_code += '[<a class="breadcrumbs" href="'
+                html_code += '%s?start=%s" title="">Next %s</a>]&nbsp;' % (
+                    href, tot, PAGE_SET)
 
             html_code += '</div>\n'
         else:
