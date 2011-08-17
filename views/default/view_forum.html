@@ -79,7 +79,7 @@
                                         {{=this_topic.modifying_date.strftime(str(T('%b %d, %Y - %I:%M %p')))}}
                                     </span>
                                     <br /><span class="small">{{=XML(T('By'))}}</span>
-                                    {{if this_topic.modifying_user_id == 0:}}
+                                    {{if not this_topic.modifying_user_id:}}
                                         <b class="small">{{=XML(T('Anonymous User'))}}</b>
                                     {{else:}}
                                         {{if auth_user.is_auth():}}

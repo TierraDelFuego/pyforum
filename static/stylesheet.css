@@ -221,7 +221,7 @@ a.smallb:active, a.smallb:link, a.smallb:visited {
 
 a.smallb:hover {
     color: #B22222;
-    font-size:x-xmall;
+    font-size:x-small;
     background-color:transparent;
     font-weight:bold;
     text-decoration:none;
@@ -412,7 +412,7 @@ pre.code {
     display:block;
     border-width: 1px;
     border-style: solid;
-    border-color: 000;
+    border-color: #000000;
     padding:5px;
     margin-top:5px;
     width:200px;
@@ -451,7 +451,7 @@ div.preview {
 }
 
 
-input['text'], textarea, select {
+input.text, textarea, select {
     color:#000000;
     background-color:#fafafa;
     border:1px solid #c8c8c8;

@@ -64,7 +64,7 @@
                                     <div class="{{if forum['update_flag']:}}important{{else:}}small{{pass}}">{{=forum['last_updated']}}
                                         <br />
                                         <span class="small">{{=XML(T('By'))}}</span>
-                                        {{if forum['last_updated_by'] == 'Anonymous User':}}
+                                        {{if not forum['last_updated_by']:}}
                                             <b class="small">{{=XML(T('Anonymous User'))}}</b>
                                         {{else:}}
                                             {{if auth_user.is_auth():}}
@@ -72,7 +72,7 @@
                                                    class="{{if forum['update_flag']:}}smallb-new{{else:}}smallb{{pass}}"
                                                    title="">{{=forumhelper.get_display_name(forum['last_updated_by'])}}</a>
                                             {{else:}}
-                                                <b class="small">{{=forum['last_updated_by']}}</b>
+                                                <b class="small">{{=forumhelper.get_display_name(forum['last_updated_by'])}}</b>
                                             {{pass}}
                                         {{pass}}
                                     </div>
@@ -83,7 +83,7 @@
                         </tr>
                     {{pass}}
                 {{else:}}
-                    <tr tal:condition="not:category/forum_list" class="shadelight">
+                    <tr class="shadelight">
                         <td class="cell3d" colspan="5">
                             <div class="indent">
                                 <i>{{=T('This category does not contain any forums')}}</i>
