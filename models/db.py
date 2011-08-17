@@ -15,10 +15,10 @@ from forumhelper import ForumHelper
 from auth import CustomAuthentication
 
 # Control Migrations
-migrate = True # False if DB Schema already exists (? - Read Docs Pls)
+migrate = False # False if DB Schema already exists (? - Read Docs Pls)
 fake_migrate = False # True to regen table info for EXISTING tables (run once)
 
-#db=SQLDB("mysql://username:passwd@localhost:3306/pyforum")
+#db=SQLDB("mysql://web2py:py2web@techfuel.net:3306/pyforum")
 db = DAL('sqlite://pyforum.sqlite', migrate=migrate)
 
  # Instantiate Authentication

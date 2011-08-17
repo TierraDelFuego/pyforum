@@ -215,7 +215,7 @@
                         </tr>
                         <tr class="shadedarker">
                             <td class="cell3d">{{=XML(T('By'))}}:</td>
-                            <td class="cell3d">{{=auth_user.get_user_name()}}, {{=XML(T('on'))}} {{=XML(T(str(request.now.strftime('%A, %d %B, %Y'))))}}</td>
+                            <td class="cell3d">{{=forumhelper.get_display_name(None, 'Anonymous User')}}, {{=XML(T('on'))}} {{=XML(T(str(request.now.strftime('%A, %d %B, %Y'))))}}</td>
                         </tr>
                         <tr class="shadedarker">
                             <td class="cell3d" style="vertical-align:middle;">{{=XML(T('Contents'))}}:</td>

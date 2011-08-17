@@ -70,7 +70,7 @@
                                     <br /><span class="small">{{=parse_content(this_topic.content[:view_info['zfsp_topic_teaser_length']], mode='forumpreview')}} ..</span>
                                 {{pass}}
                             </td>
-                            <td class="cell3d center-xy">{{=forumhelper.get_member_property('zfmp_display_name', this_topic.creation_user_id, 'Anonymous User')}}</td>
+                            <td class="cell3d center-xy">{{if this_topic.creation_user_id:}}<a href="{{=URL(r=request, c='pm', f='message_new', args=[this_topic.creation_user_id])}}" title="">{{=forumhelper.get_display_name(this_topic.creation_user_id, 'Anonymous User')}}</a>{{else:}}Anonymous User{{pass}}</td>
                             <td class="cell3d center-xy">{{=topic_replies_info[this_topic.id]}}</td>
                             <td class="cell3d center-xy">{{=this_topic.hits}}</td>
                             <td class="cell3d center-xy">

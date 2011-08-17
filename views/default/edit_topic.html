@@ -29,7 +29,7 @@
         <tbody>
             <tr>
                 <td>{{=XML(T('Author'))}}:</td>
-                <td>{{=topic.creation_user}}</td>
+                <td>{{=forumhelper.get_display_name(topic.creation_user_id)}}</td>
             </tr>
             <tr>
                 <td><span class="required">*</span> {{=XML(T('Title'))}}:</td>
@@ -54,18 +54,14 @@
                 </tr>
             {{pass}}
             <tr>
-                <td><span class="warning">*</span> {{=XML(T('Creator'))}}:</td>
+                <td><span class="warning">*</span> {{=XML(T('Creation'))}}:</td>
                 <td>
-                    <input type="text" id="creation_user" name="creation_user" value="{{=request.vars.get('creation_user', topic.creation_user)}}" style="width:200px;" />
-                    @
                     <input type="text" id="creation_date" name="creation_date" value="{{=request.vars.get('creation_date', topic.creation_date.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
                 </td>
             </tr>
             <tr>
-                <td><span class="warning">*</span> {{=XML(T('Modificator'))}}:</td>
+                <td><span class="warning">*</span> {{=XML(T('Modification'))}}:</td>
                 <td>
-                    <input type="text" id="modifying_user" name="modifying_user" value="{{=request.vars.get('modifying_user', topic.modifying_user)}}" style="width:200px;" />
-                    @
                     <input type="text" id="modifying_date" name="modifying_date" value="{{=request.vars.get('modifying_date', topic.modifying_date.strftime('%Y-%m-%d %H:%M:%S'))}}" style="width:200px;" />
                 </td>
             </tr>

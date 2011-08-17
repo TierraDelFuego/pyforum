@@ -901,12 +901,12 @@ def edit_topic():
         forum_id = topic.forum_id
 
         if req.edit_topic:
-            if req.title and req.content and req.creation_user and \
-            req.creation_date and req.modifying_user and req.modifying_date:
+            if (req.title and req.content and req.creation_date and
+                req.modifying_date):
                 title = parse_content(req.title)
-                creation_user = req.creation_user
+                #creation_user = req.creation_user
                 creation_date = req.creation_date
-                modifying_user = req.modifying_user
+                #modifying_user = req.modifying_user
                 modifying_date = req.modifying_date
 
                 if topic.parent_flag:
@@ -917,9 +917,9 @@ def edit_topic():
                                                is not None
                     db(db.zf_topic.id==topic_id).update(title=title,
                         content=req.content,
-                        creation_user_id=creation_user,
+                        #creation_user_id=creation_user,
                         creation_date=creation_date,
-                        modifying_user_id=modifying_user,
+                        #modifying_user_id=modifying_user,
                         modifying_date=modifying_date,
                         locked_flag=locked_flag,
                         sticky_flag=sticky_flag,
@@ -929,9 +929,9 @@ def edit_topic():
                     # Just Update child-required fields
                     db(db.zf_topic.id==topic_id).update(title=title,
                         content=req.content,
-                        creation_user_id=creation_user,
+                        #creation_user_id=creation_user,
                         creation_date=creation_date,
-                        modifying_user_id=modifying_user,
+                        #modifying_user_id=modifying_user,
                         modifying_date=modifying_date)
                 redirect(URL(r=request, c='default', f='view_topic',
                              args=[parent_topic_id]))

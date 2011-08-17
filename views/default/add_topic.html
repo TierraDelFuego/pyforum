@@ -29,7 +29,7 @@
         <tbody>
             <tr>
                 <td>{{=XML(T('Author'))}}:</td>
-                <td>{{=forumhelper.get_display_name()}}</td>
+                <td>{{=forumhelper.get_display_name(None, 'Anonymous User')}}</td>
             </tr>
             <tr>
                 <td><span class="required">*</span> {{=XML(T('Title'))}}:</td>
