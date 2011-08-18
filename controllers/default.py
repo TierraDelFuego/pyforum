@@ -568,7 +568,7 @@ def view_topic():
     view_info['errors'] = []
     security_info = {'can_add': False, 'can_reply': False}
     parent_topic_removed = False
-    user_id = auth_user.get_user_id()
+    user_id = auth_user.get_user_id() or 0
     emoticons = ['icon_arrow.png', 'icon_biggrin.png', 'icon_confused.png',
                  'icon_cool.png', 'icon_cry.png', 'icon_exclaim.png',
                  'icon_idea.png', 'icon_lol.png', 'icon_mad.png',
@@ -686,10 +686,12 @@ def view_topic():
                         modifying_user_id=user_id)
 
                     # Increment the number of postings for this user
-                    postings = int(forumhelper.get_member_property(
-                        'zfmp_postings', user_id, '0')) + 1
-                    forumhelper.put_member_property('zfmp_postings',
-                                                    user_id, str(postings))
+                    # IF the user is not anonymous
+                    if user_id:
+                        postings = int(forumhelper.get_member_property(
+                            'zfmp_postings', user_id, '0')) + 1
+                        forumhelper.put_member_property('zfmp_postings',
+                                                        user_id, str(postings))
 
                     # Notify Subscribed users about changes in this topic
                     forumhelper.setup_notifications(subscription_id=topic_id,
@@ -774,7 +776,7 @@ def add_topic():
                 # Ignore ALL html tags AND do not convert it
                 title = parse_content(req.title)
 
-                creation_user = auth_user.get_user_id()
+                creation_user = auth_user.get_user_id() or 0
                 modifying_user = creation_user
                 if is_admin:
                     locked_flag = req.locked_flag is not None

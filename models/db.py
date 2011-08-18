@@ -15,10 +15,10 @@ from forumhelper import ForumHelper
 from auth import CustomAuthentication
 
 # Control Migrations
-migrate = False # False if DB Schema already exists (? - Read Docs Pls)
+migrate = True # False if DB Schema already exists (? - Read Docs Pls)
 fake_migrate = False # True to regen table info for EXISTING tables (run once)
 
-#db=SQLDB("mysql://web2py:py2web@techfuel.net:3306/pyforum")
+#db=SQLDB("mysql://web2py:py2web@localhost:3306/pyforum")
 db = DAL('sqlite://pyforum.sqlite', migrate=migrate)
 
  # Instantiate Authentication
@@ -89,9 +89,11 @@ db.define_table('zf_topic',
                 db.Field('title', 'string', length=255, required=True),
                 db.Field('content', 'text', required=True),
                 db.Field('parent_id', 'integer', required=False, default=0),
-                db.Field('creation_user_id', db.auth_users),
+                db.Field('creation_user_id', 'integer', required=False,
+                         default=0),
                 db.Field('creation_date', 'datetime', required=True),
-                db.Field('modifying_user_id', db.auth_users),
+                db.Field('modifying_user_id', 'integer', required=False,
+                         default=0),
                 db.Field('modifying_date', 'datetime', required=True),
                 db.Field('hits', 'integer', required=False, default=0),
                 db.Field('parent_flag', 'boolean', required=False),
