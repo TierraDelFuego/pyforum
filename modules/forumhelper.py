@@ -330,15 +330,15 @@ class ForumHelper(object):
             self.db.zf_member_subscriptions.user_id)
         if subscribers:
             for subscriber in subscribers:
-                # Only add this subscription notification entry
+                # Only add this subscription notification email request
                 # if another one for the same type/object/validity does
-                # not exist yet.
-                if not self.db(
-                    (self.db.zf_member_subscriptions_notification.user_id == \
-                     subscriber.user_id) &
+                # not exist yet..
+                is_subscribed = self.db(
+                    (self.db.zf_member_subscriptions_notification.user_id == subscriber.user_id) &
+                    (self.db.zf_member_subscriptions_notification.subscription_type == subscription_type) %
                     (self.db.zf_member_subscriptions_notification.subscription_id == subscription_id) &
-                    (self.db.zf_member_subscriptions_notification.subscription_type == subscription_type) &
-                    (self.db.zf_member_subscriptions_notification.is_processed == False)).count():
+                    (self.db.zf_member_subscriptions_notification.is_processed == False)).count() > 0
+                if not is_subscribed:
                     self.db.zf_member_subscriptions_notification.insert(
                         user_id=subscriber.user_id,
                         subscription_id=subscription_id,
@@ -351,12 +351,12 @@ class ForumHelper(object):
                        False).count()
 
     def get_admin_msgs_cnt(self):
-        return self.db(self.db.zf_admin_messages.read_flag==False).count()
+        return self.db(self.db.zf_admin_messages.read_flag == False).count()
 
     def get_my_messages_cnt(self):
         msg_count = self.db(
             (self.db.zf_pm.user_id == self.auth_user.get_user_id()) &
-            (self.db.zf_pm.read_flag==False)).count()
+            (self.db.zf_pm.read_flag == False)).count()
         if msg_count > 0:
             rval = '<b style="color:red;">(%s)</b>' % (msg_count)
         else:
