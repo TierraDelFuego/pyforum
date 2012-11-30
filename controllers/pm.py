@@ -21,7 +21,7 @@ def index():
             # 1. Get the target category selected in the dropdown
             target_cat_id = req.moveto
             #raise ValueError, req
-            if len(target_cat_id):
+            if (target_cat_id):
                 move_ids = []
                 # Get the ids that need to be moved:
                 for req_var in req:
@@ -38,7 +38,7 @@ def index():
         # Get categories:
         cats = db().select(db.zf_pm_categories.ALL,
                            orderby=db.zf_pm_categories.display_order)
-        if len(request.args):
+        if (request.args):
             default_cat = [def_cat for def_cat in cats \
                            if def_cat.id == int(request.args[0])][0]
         else:
@@ -96,7 +96,7 @@ def message_new():
             # See if target user exists
             dest_user_info = db((db.auth_users.id == mto) &
                 (db.auth_users.is_enabled == True)).select()
-            if not len(dest_user_info):
+            if not (dest_user_info):
                 view_info['errors'].append('The recipient does not appear '
                                            'to exist, is invalid or is a user '
                                            'that has been banned from the '
@@ -170,11 +170,11 @@ def view():
             # 3. return back to the PM index page
             redirect(URL(r=request, c='pm', f='index'))
     else:
-        if len(request.args):
+        if (request.args):
             msg_id = int(request.args[0])
             m = db((db.zf_pm.id == msg_id) &
                 (db.zf_pm.user_id == user_id)).select()
-            if len(m):
+            if (m):
                 msg = m[0]
                 # flag it as read
                 db(db.zf_pm.id==msg.id).update(read_flag=True)

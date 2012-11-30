@@ -215,7 +215,7 @@ def forums():
     else:
         # Entering for the first time, or the use switched categories using
         # the provided selection widget
-        if len(request.args):
+        if (request.args):
             selected_cat_id = int(request.args[0])
             for cat in cats:
                 if cat.id == selected_cat_id:
@@ -223,11 +223,11 @@ def forums():
                     break
         else:
             # No category is selected, attempt to grab the first one found
-            if len(cats):
+            if (cats):
                 selected_category = cats[0]
                 selected_cat_id = selected_category.id
 
-        if len(selected_category):
+        if (selected_category):
             # Ok, a category has been selected, grab the category's forums
             cat_forums = db(db.zf_forum.cat_id==selected_cat_id).select(
                 db.zf_forum.ALL, orderby=db.zf_forum.forum_sort)
@@ -661,7 +661,7 @@ def user_edit():
                                                    'administrator: %s '
                                                    'bytes' % (len(image_data)))
 
-                    if len(view_info['errors']):
+                    if (view_info['errors']):
                         raise ValueError, view_info['errors']
                     if not view_info['errors']:
                         #raise ValueError, (c_type, width, height,)

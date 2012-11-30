@@ -65,7 +65,7 @@ class ForumHelper(object):
         property_check = self.db(
             self.db.zf_member_properties_skel.property_name == \
             property_name).select(self.db.zf_member_properties_skel.id)
-        if len(property_check):
+        if (property_check):
             property_id = property_check[0].id
             # Now check if the user *has* this property in his profile
             user_prop = self.db((self.db.zf_member_properties.property_id == \
@@ -96,7 +96,7 @@ class ForumHelper(object):
                 property_name).select(
             self.db.zf_member_properties_skel.id,
             self.db.zf_member_properties_skel.member_editable)
-        if len(property_check):
+        if (property_check):
             property_id = property_check[0].id
             curr_user_id = self.auth_user.get_user_id()
             #member_editable = property_check[0].member_editable
@@ -107,7 +107,7 @@ class ForumHelper(object):
                      property_id) & \
                     (self.db.zf_member_properties.user_id == \
                      user_id)).select(self.db.zf_member_properties.id)
-                if len(prop_exists):
+                if (prop_exists):
                     # Yes, then update
                     self.db(
                         (self.db.zf_member_properties.property_id == \
@@ -142,7 +142,7 @@ class ForumHelper(object):
                 self.db.zf_member_avatars.user_id).select(
                 self.db.zf_member_avatars.content_type,
                 self.db.zf_member_avatars.avatar_image)
-        if len(avatar_info):
+        if (avatar_info):
             return True
         else:
             return False
@@ -207,7 +207,7 @@ class ForumHelper(object):
             (self.db.zf_member_subscriptions.user_id == user_id) &
             (self.db.zf_member_subscriptions.subscription_type == \
              object_type)).select()
-        if len(subscription):
+        if (subscription):
             # Ok, there is a record, this means that we'll update it rather
             # than add a new one
             if action == "add":
@@ -245,7 +245,7 @@ class ForumHelper(object):
             self.db.zf_member_rank.rank_name,
             orderby=~self.db.zf_member_rank.rank_value_min, limitby=(0,1))
         #raise ValueError, rank_info
-        if len(rank_info):
+        if (rank_info):
             rank = rank_info[0].rank_name
         return rank
 
@@ -273,7 +273,7 @@ class ForumHelper(object):
                     self.db.zf_topic.modifying_date,
                     orderby=~self.db.zf_topic.modifying_date,
                     limitby=(0, max_sys_announcements))
-            if not len(sys_topics) and not rss:
+            if not (sys_topics) and not rss:
                 sys_topics = [{'error':'No Topics'}]
         else:
             if not rss:
@@ -308,7 +308,7 @@ class ForumHelper(object):
                     self.db.zf_topic.modifying_date,
                     orderby=~self.db.zf_topic.modifying_date,
                     limitby=(0, max_topics))
-            if not len(latest_topics) and not rss:
+            if not (latest_topics) and not rss:
                 latest_topics = [{'error':'No Topics'}]
         else:
             if not rss:

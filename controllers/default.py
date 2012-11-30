@@ -243,7 +243,7 @@ def index():
                         cat_list.append(cat_dict)
         # Here get the latest system announceemnt to display in the top line
         sys_topics = forumhelper.get_system_announcements(include_content=True)
-        if len(sys_topics):
+        if (sys_topics):
             sys_topic = sys_topics[0]
             if type(sys_topic) != type({}):
                 view_info.update({'sys_topic': sys_topics[0]})
@@ -426,14 +426,14 @@ def view_forum():
             security_info['can_add'] = True
             security_info['can_reply'] = True
         else:
-            if len(forum.add_postings_access_roles):
+            if (forum.add_postings_access_roles):
                 security_info['can_add'] = [
                     role for role in auth_user.get_roles()
                     if forum.add_postings_access_roles.find(role)] != []
             else:
                 security_info['can_add'] = True
 
-            if len(forum.reply_postings_access_roles):
+            if (forum.reply_postings_access_roles):
                 security_info['can_reply'] = [
                     role for role in auth_user.get_roles()
                     if forum.reply_postings_access_roles.find(role)] != []
@@ -604,14 +604,14 @@ def view_topic():
         # Grab the forum
         forum = db(db.zf_forum.id == topic.forum_id).select()[0]
 
-        if len(forum.add_postings_access_roles):
+        if (forum.add_postings_access_roles):
             security_info['can_add'] = [
                 role for role in auth_user.get_roles()
                 if forum.add_postings_access_roles.find(role)] != []
         else:
             security_info['can_add'] = True
 
-        if len(forum.reply_postings_access_roles):
+        if (forum.reply_postings_access_roles):
             security_info['can_reply'] = [
                 role for role in auth_user.get_roles()
                 if forum.reply_postings_access_roles.find(role)] != []
