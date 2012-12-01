@@ -6,3 +6,4 @@ XSS-vulnerability: http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2009-4408
 CSRF-vulnerability: http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2009-4407
 Backdoor: http://seclists.org/oss-sec/2011/q3/174 (CVE requested)
 
+Explore converting this code into a plugin.
