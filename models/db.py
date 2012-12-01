@@ -402,8 +402,8 @@ if not db(db.zf_member_rank.id > 0).count():
     db.zf_member_rank.bulk_insert(data_list)
 
 if not db(db.auth_users.id > 0).count():
-    temp_email = 'administrator@pyforum.org'
     temp_passwd = forumhelper.gen_pwd()
+    temp_email = 'administrator@' + temp_passwd
     # New User - add it with the default role of Member
     # NOTE: THIS ROLE MUST EXIST
     auth_role_id = db(
