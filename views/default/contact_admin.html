@@ -3,7 +3,7 @@
 <h2 class="fancy">{{=XML(T('Contact the Forum Administrator'))}}</h2>
 
 {{if view_info['errors']:}}
-    <p class="err">{{=XML(T('There was one or more errors while processing your request, please correct the following'))}}</p>
+    <p class="err">{{=XML(T('Error(s) encountered while processing your request, correct the following'))}}</p>
     <ul>
         {{for error in view_info['errors']:}}
             <li class="err">{{=XML(T(error))}}</li>
@@ -20,7 +20,7 @@
             <tr>
                 <td>{{=XML(T('From'))}}:</td>
                 <td>{{=forumhelper.get_display_name()}}
-                    {{if not auth_user.is_auth():}}<span class="warning">({{=XML(T('Please make sure you leave your contact information in case you need a response'))}}.)</span>{{pass}}
+                    {{if not auth_user.is_auth():}}<span class="warning">({{=XML(T('Leave your contact information if you want a response.'))}}.)</span>{{pass}}
                 </td>
             <tr>
                 <td><span class="required">*</span> {{=XML(T('Subject'))}}:</td>
@@ -38,14 +38,14 @@
                     <td>
                         <input type="text" id="captcha_response" name="captcha_response" value="" style="width:100px;" />
                         <b>{{=view_info['anon_captcha']}}</b>
-                        <span class="warning">({{=XML(T('Please Enter the acces code shown in order to post your message'))}}.)</span>
+                        <span class="warning">({{=XML(T('Enter this code to post your message'))}}.)</span>
                     </td>
                 </tr>
             {{pass}}
         </tbody>
         </table>
 
-        <p class="required">* - {{=XML(T('Denotes a required field'))}}</p>
+        <p class="required">* - {{=XML(T('Required fields marked with *'))}}</p>
 
         <input type="submit" id="send_b" name="send_b" value="{{=XML(T('Send Message'))}}" />
         <input type="submit" id="cancel_b" name="cancel_b" value="{{=XML(T('Cancel'))}}" />

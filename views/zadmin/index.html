@@ -15,9 +15,13 @@
             {{for key, value in pyforum_info.items():}}
                 <tr class="shadedark">
                     <td class="cell3d">{{if key=='is_beta':}}Beta{{else:}}{{=key}}{{pass}}</td>
-                    <td class="cell3d" style="text-align:right;">{{=XML(value)}}</b></td>
+                    <td class="cell3d" style="text-align:right;"><b>{{=XML(value)}}</b></td>
                 </tr>
             {{pass}}
+	    <tr class="shadedark">
+                <td class="cell3d">Admin</td>
+                <td class="cell3d" style="text-align:right;">{{=A('Admin', _href=URL('default', 'contact_admin'))}}</td>
+            </tr>
             <tr class="shadedark">
                 <td class="cell3d">Number of Categories</td>
                 <td class="cell3d" style="text-align:right;">{{=categories}}</td>
